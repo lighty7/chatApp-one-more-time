@@ -5,7 +5,7 @@
   "private": false,
   "main": "server.js",
   "scripts": {
-    "test": "mocha --exit tests/*",
+    "test": "mocha --exit tests/*.test.js",
     "start": "node server.js",
     "dev": "nodemon server.js",
     "lint": "eslint . --ext .js",
