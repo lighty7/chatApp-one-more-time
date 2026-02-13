@@ -45,15 +45,11 @@ let sharedFiles = new Map(); // Store shared files by ID
 function joinChat() {
   const name = nicknameInput.value.trim();
   if (name) {
-    nickname = name;
-    socket.emit('set-nickname', nickname);
-
-    nicknameModal.style.display = 'none';
-    chatContainer.style.display = 'grid';
-    currentUserEl.textContent = nickname;
-
-    // Join default room
-    joinRoom('general');
+    // Disable button while processing
+    joinBtn.disabled = true;
+    joinBtn.textContent = 'Joining...';
+    
+    socket.emit('set-nickname', name);
   }
 }
 
@@ -128,6 +124,66 @@ socket.on('user-joined', (data) => {
 
 socket.on('user-left', (data) => {
   appendSystemMessage(`${data.nickname} left the room`);
+});
+
+// Nickname event handlers
+socket.on('nickname-success', (assignedNickname) => {
+  nickname = assignedNickname;
+  currentUserEl.textContent = nickname;
+  
+  // Show success feedback
+  nicknameModal.style.display = 'none';
+  chatContainer.style.display = 'grid';
+  
+  // Join default room
+  joinRoom('general');
+  
+  console.log('Nickname assigned:', assignedNickname);
+});
+
+socket.on('nickname-updated', (data) => {
+  nickname = data.assigned;
+  currentUserEl.textContent = nickname;
+  
+  // Show success feedback
+  nicknameModal.style.display = 'none';
+  chatContainer.style.display = 'grid';
+  
+  // Show a friendly notification about the nickname change
+  appendSystemMessage(data.message);
+  
+  // Join default room
+  joinRoom('general');
+  
+  console.log('Nickname updated:', data.assigned);
+});
+
+socket.on('nickname-error', (errorMessage) => {
+  // Re-enable button and reset text
+  joinBtn.disabled = false;
+  joinBtn.textContent = 'Join Chat';
+  
+  // Show error message
+  const errorEl = document.createElement('div');
+  errorEl.style.color = '#ff6b6b';
+  errorEl.style.fontSize = '0.9rem';
+  errorEl.style.marginTop = '0.5rem';
+  errorEl.textContent = errorMessage;
+  
+  // Remove any existing error message
+  const existingError = nicknameModal.querySelector('.error-message');
+  if (existingError) {
+    existingError.remove();
+  }
+  
+  // Add new error message
+  errorEl.className = 'error-message';
+  nicknameModal.querySelector('.modal-content').appendChild(errorEl);
+  
+  // Clear error after 3 seconds
+  setTimeout(() => {
+    errorEl.remove();
+  }, 3000);
 });
 
 socket.on('room-users', (users) => {
@@ -307,10 +363,18 @@ function uploadFile(file) {
   formData.append('nickname', nickname);
   formData.append('room', currentRoom);
 
-  // Show progress
+  // Show progress with animation
   uploadProgress.style.display = 'block';
   progressFill.style.width = '0%';
   progressText.textContent = 'Uploading...';
+
+  // Animate progress bar
+  let progress = 0;
+  const progressInterval = setInterval(() => {
+    progress += Math.random() * 15;
+    if (progress > 90) progress = 90;
+    progressFill.style.width = progress + '%';
+  }, 200);
 
   fetch('/upload', {
     method: 'POST',
@@ -318,9 +382,15 @@ function uploadFile(file) {
   })
     .then(response => response.json())
     .then(data => {
+      clearInterval(progressInterval);
+      
       if (data.error) {
         throw new Error(data.error);
       }
+        
+      // Complete progress animation
+      progressFill.style.width = '100%';
+      progressText.textContent = 'Upload complete!';
         
       // Store file info
       sharedFiles.set(data.id, data);
@@ -337,18 +407,31 @@ function uploadFile(file) {
         
       socket.emit('send-message', fileMessage);
         
-      // Hide progress
-      uploadProgress.style.display = 'none';
+      // Hide progress after delay
+      setTimeout(() => {
+        uploadProgress.style.display = 'none';
+        progressFill.style.width = '0%';
+      }, 1000);
         
       // Clear file input
       fileInput.value = '';
+      
+      // Show success message
+      appendSystemMessage(`📎 File "${data.originalName}" shared successfully!`);
     })
     .catch(error => {
+      clearInterval(progressInterval);
       console.error('Upload error:', error);
+      progressFill.style.background = 'linear-gradient(90deg, #ff6b6b, #ff5252)';
       progressText.textContent = 'Upload failed';
+      
       setTimeout(() => {
         uploadProgress.style.display = 'none';
+        progressFill.style.width = '0%';
+        progressFill.style.background = '';
       }, 3000);
+      
+      appendSystemMessage('❌ File upload failed. Please try again.');
     });
 }
 

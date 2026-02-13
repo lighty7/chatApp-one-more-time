@@ -141,10 +141,77 @@ io.on('connection', (socket) => {
   let currentRoom = null;
   let nickname = 'Anonymous';
 
+  // Funny suffixes for duplicate nicknames
+  const funnySuffixes = [
+    '(dumbass)', '(smarty-pants)', '(cool-cat)', '(ninja)', '(wizard)', 
+    '(banana)', '(penguin)', '(toaster)', '(rocket)', '(unicorn)', 
+    '(pirate)', '(robot)', '(alien)', '(potato)', '(noodle)', 
+    '(muffin)', '(waffle)', '(pickle)', '(cheese)', '(bacon)',
+    '(clown)', '(goofball)', '(legend)', '(champion)', '(master)', 
+    '(guru)', '(ninja-warrior)', '(space-cowboy)', '(time-traveler)', '(superhero)'
+  ];
+
+  // Helper function to get all existing nicknames
+  function getExistingNicknames(excludeSocketId = null) {
+    const existingNicknames = new Set();
+    for (const roomName in rooms) {
+      const room = rooms[roomName];
+      room.users.forEach(u => {
+        if (u.id !== excludeSocketId) {
+          existingNicknames.add(u.nickname);
+        }
+      });
+    }
+    return existingNicknames;
+  }
+
+  // Helper function to generate unique nickname with funny suffix
+  function generateUniqueNickname(baseName) {
+    if (baseName === 'Anonymous') return 'Anonymous';
+    
+    const existingNicknames = getExistingNicknames(socket.id);
+    
+    // If nickname is not taken, return as-is
+    if (!existingNicknames.has(baseName)) {
+      return baseName;
+    }
+    
+    // Try adding funny suffixes
+    const shuffledSuffixes = [...funnySuffixes].sort(() => Math.random() - 0.5);
+    
+    for (const suffix of shuffledSuffixes) {
+      const newName = `${baseName}${suffix}`;
+      if (!existingNicknames.has(newName)) {
+        return newName;
+      }
+    }
+    
+    // Fallback: add number
+    let counter = 2;
+    while (existingNicknames.has(`${baseName}${counter}`)) {
+      counter++;
+    }
+    return `${baseName}${counter}`;
+  }
+
   // Set nickname
   socket.on('set-nickname', (name) => {
-    nickname = name || 'Anonymous';
+    const requestedName = name || 'Anonymous';
+    const uniqueNickname = generateUniqueNickname(requestedName);
+    
+    nickname = uniqueNickname;
     console.log(`${socket.id} set nickname to: ${nickname}`);
+    
+    // Notify user of their assigned nickname
+    if (uniqueNickname !== requestedName) {
+      socket.emit('nickname-updated', {
+        original: requestedName,
+        assigned: uniqueNickname,
+        message: `The name "${requestedName}" was already taken, so you're now "${uniqueNickname}"`
+      });
+    } else {
+      socket.emit('nickname-success', nickname);
+    }
   });
 
   // Join room
