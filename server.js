@@ -325,8 +325,11 @@ app.get('/api/rooms', (req, res) => {
   res.json(roomList);
 });
 
-httpServer.listen(port, '0.0.0.0', () => {
-  console.log('Chat server listening on http://localhost:' + port);
-});
+if (require.main === module) {
+  httpServer.listen(port, '0.0.0.0', () => {
+    console.log('Chat server listening on http://localhost:' + port);
+  });
+}
 
 module.exports = app;
+module.exports.httpServer = httpServer;
