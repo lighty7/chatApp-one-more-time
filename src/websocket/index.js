@@ -46,6 +46,7 @@ function setupWebSocket(httpServer) {
     try {
       await presenceService.setOnline(socket.userId, socket.id);
       socket.join(`user:${socket.userId}`);
+      io.emit('user-online', { userId: socket.userId });
     } catch (error) {
       console.error('Error setting presence:', error);
     }
@@ -54,11 +55,25 @@ function setupWebSocket(httpServer) {
     setupRoomHandlers(io, socket);
     setupPresenceHandlers(io, socket);
 
+    const heartbeatInterval = setInterval(async () => {
+      if (socket.connected) {
+        socket.emit('heartbeat-ping');
+      } else {
+        clearInterval(heartbeatInterval);
+      }
+    }, 10000);
+
+    socket.on('heartbeat-pong', async () => {
+      await presenceService.updateHeartbeat(socket.userId);
+    });
+
     socket.on('disconnect', async (reason) => {
       console.log(`User disconnected: ${socket.userId} (${reason})`);
+      clearInterval(heartbeatInterval);
       
       try {
         await presenceService.setOffline(socket.userId);
+        io.emit('user-offline', { userId: socket.userId });
       } catch (error) {
         console.error('Error setting offline:', error);
       }
@@ -96,7 +111,7 @@ async function setupRedisSubscriptions() {
     } else if (entity === 'room') {
       io.to(`room:${id}`).emit('room:event', data);
     } else if (entity === 'presence' || entity === 'online' || entity === 'offline') {
-      io.emit('presence:event', { type: entity, ...data });
+      io.emit('presence:event', { type: entity === 'presence' ? id : entity, ...data });
     } else if (entity === 'typing') {
       io.to(`conversation:${id}`).emit('typing:event', data);
     }

@@ -67,6 +67,19 @@ router.put('/:id', async (req, res, next) => {
   }
 });
 
+router.delete('/:id', async (req, res, next) => {
+  try {
+    if (req.user.id !== req.params.id) {
+      return res.status(403).json({ error: 'Not authorized to delete this user' });
+    }
+
+    await userService.deleteAccount(req.params.id);
+    res.json({ success: true, message: 'Account deleted successfully' });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.get('/:id/presence', async (req, res, next) => {
   try {
     const presence = await userService.getUserPresence(req.params.id);

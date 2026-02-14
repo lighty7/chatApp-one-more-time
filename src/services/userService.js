@@ -1,4 +1,6 @@
 const User = require('../models/User');
+const Conversation = require('../models/Conversation');
+const Message = require('../models/Message');
 const { getRedisClient } = require('../config/redis');
 
 class UserService {
@@ -131,6 +133,36 @@ class UserService {
     );
 
     return presenceMap;
+  }
+
+  async deleteAccount(userId) {
+    const redis = getRedisClient();
+    
+    await Message.updateMany(
+      { sender: userId },
+      { 
+        $set: { 
+          content: '[Deleted User]',
+          isDeleted: true,
+          sender: null 
+        }
+      }
+    );
+
+    await Conversation.deleteMany({
+      $or: [
+        { 'participants.user': userId },
+        { user1: userId },
+        { user2: userId }
+      ]
+    });
+
+    await redis.del(`presence:${userId}`);
+    await redis.del(`presence:${userId}:socket`);
+    await redis.del(`presence:${userId}:heartbeat`);
+    await redis.srem('online_users', userId);
+
+    await User.findByIdAndDelete(userId);
   }
 }
 

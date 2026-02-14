@@ -21,10 +21,10 @@ class RateLimitService {
     const now = Date.now();
     const windowStart = now - windowMs;
 
-    const [count] = await redis.zadd(key, now, `${now}:${Math.random()}`)
-      .then(() => redis.zremrangebyscore(key, 0, windowStart))
-      .then(() => redis.zcard(key))
-      .then(() => redis.expire(key, Math.ceil(windowMs / 1000)));
+    await redis.zadd(key, now, `${now}:${Math.random()}`);
+    await redis.zremrangebyscore(key, 0, windowStart);
+    const count = await redis.zcard(key);
+    await redis.expire(key, Math.ceil(windowMs / 1000));
 
     return {
       allowed: count <= max,

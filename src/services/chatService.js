@@ -59,8 +59,7 @@ class ChatService {
       .sort({ lastMessageAt: -1, updatedAt: -1 })
       .skip(skip)
       .limit(limit)
-      .populate('participants.user', 'username displayName avatar status lastSeen')
-      .lean();
+      .populate('participants.user', 'username displayName avatar status lastSeen');
 
     const enrichedConversations = await Promise.all(
       conversations.map(async (conv) => {
@@ -73,11 +72,15 @@ class ChatService {
           displayName = otherParticipant.user.displayName || otherParticipant.user.username;
         }
 
+        const unreadCount = conv.unreadCount instanceof Map 
+          ? conv.unreadCount.get(userId.toString()) || 0 
+          : conv.unreadCount?.[userId.toString()] || 0;
+
         return {
-          ...conv,
+          ...conv.toObject(),
           displayName,
           otherParticipant: conv.type === 'direct' ? otherParticipant?.user : null,
-          unreadCount: conv.unreadCount?.get(userId.toString()) || 0
+          unreadCount
         };
       })
     );
@@ -139,6 +142,47 @@ class ChatService {
     }));
 
     return { success: true };
+  }
+
+  async sendMessage(conversationId, userId, content, type = 'text', attachmentId = null) {
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      'participants.user': userId
+    });
+
+    if (!conversation) {
+      throw new Error('Conversation not found');
+    }
+
+    if (!conversation.canSendMessage(userId)) {
+      throw new Error('You are muted in this conversation');
+    }
+
+    const message = await Message.create({
+      conversationId,
+      sender: userId,
+      content,
+      type,
+      attachment: attachmentId,
+      readBy: [{ user: userId, readAt: new Date() }]
+    });
+
+    await message.populate('sender', 'username displayName avatar');
+    if (attachmentId) {
+      await message.populate('attachment');
+    }
+
+    conversation.lastMessage = message._id;
+    conversation.lastMessageAt = new Date();
+    await conversation.save();
+
+    const redisPub = getRedisPub();
+    await redisPub.publish(`conversation:${conversationId}`, JSON.stringify({
+      type: 'new_message',
+      data: message
+    }));
+
+    return message;
   }
 
   async getMessages(conversationId, userId, page = 1, limit = 50) {

@@ -9,9 +9,9 @@ const roomRoutes = require('./rooms');
 const fileRoutes = require('./files');
 
 router.use('/auth', authRoutes);
-router.use('/users', userRoutes);
+router.use('/users', authMiddleware, userRoutes);
 router.use('/conversations', authMiddleware, conversationRoutes);
-router.use('/rooms', roomRoutes);
+router.use('/rooms', authMiddleware, roomRoutes);
 router.use('/files', optionalAuthMiddleware, fileRoutes);
 
 router.get('/health', (req, res) => {

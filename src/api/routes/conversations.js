@@ -76,7 +76,7 @@ router.get('/:id/messages', async (req, res, next) => {
       parseInt(page) || 1,
       parseInt(limit) || 50
     );
-    res.json(messages);
+    res.json({ messages });
   } catch (error) {
     next(error);
   }
