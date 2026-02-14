@@ -54,7 +54,6 @@ const roomSchema = new mongoose.Schema({
   timestamps: true
 });
 
-roomSchema.index({ name: 1 });
 roomSchema.index({ isPrivate: 1, createdAt: -1 });
 
 roomSchema.pre('save', function(next) {
