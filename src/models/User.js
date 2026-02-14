@@ -48,6 +48,10 @@ const userSchema = new mongoose.Schema({
     soundEnabled: { type: Boolean, default: true },
     theme: { type: String, enum: ['light', 'dark', 'system'], default: 'system' }
   },
+  preferredModel: {
+    type: String,
+    default: 'qwen2.5-coder:7b'
+  },
   refreshToken: {
     type: String,
     select: false

@@ -1,5 +1,7 @@
 const chatService = require('../../services/chatService');
 const presenceService = require('../../services/presenceService');
+const aiService = require('../../services/aiService');
+const userService = require('../../services/userService');
 
 const userMessageCounts = new Map();
 
@@ -139,6 +141,75 @@ function setupChatHandlers(io, socket) {
       });
     } catch (error) {
       console.error('Error broadcasting stop typing:', error);
+    }
+  });
+
+  socket.on('ai-message', async (data, callback) => {
+    try {
+      const { message, conversationHistory } = data;
+      
+      const user = await userService.getById(userId);
+      const model = user.preferredModel || 'qwen2.5-coder:7b';
+      
+      const history = (conversationHistory || []).map(msg => ({
+        role: msg.sender === 'ai' ? 'assistant' : 'user',
+        content: msg.content
+      }));
+      
+      const aiMessage = {
+        _id: `ai-${Date.now()}`,
+        conversationId: 'ai-chat',
+        sender: { _id: 'ai', displayName: 'AI Assistant' },
+        content: '',
+        type: 'text',
+        createdAt: new Date().toISOString(),
+        isAI: true
+      };
+      
+      socket.emit('ai-typing', { isTyping: true });
+      
+      const abortController = new AbortController();
+      socket.aiAbortController = abortController;
+      
+      let fullResponse = '';
+      
+      for await (const chunk of aiService.streamChat(message, model, history, abortController.signal)) {
+        fullResponse += chunk;
+        socket.emit('ai-stream', { 
+          content: chunk,
+          fullContent: fullResponse
+        });
+      }
+      
+      delete socket.aiAbortController;
+      aiMessage.content = fullResponse;
+      
+      socket.emit('ai-typing', { isTyping: false });
+      socket.emit('ai-message', aiMessage);
+      
+      if (callback) {
+        callback({ success: true, message: aiMessage });
+      }
+    } catch (error) {
+      delete socket.aiAbortController;
+      console.error('Error in AI message:', error);
+      socket.emit('ai-error', { error: error.message });
+      if (callback) {
+        callback({ success: false, error: error.message });
+      }
+    }
+  });
+
+  socket.on('ai-stop', async () => {
+    try {
+      if (socket.aiAbortController) {
+        socket.aiAbortController.abort();
+        delete socket.aiAbortController;
+        socket.emit('ai-typing', { isTyping: false });
+        socket.emit('ai-stopped', { success: true });
+      }
+    } catch (error) {
+      console.error('Error stopping AI message:', error);
     }
   });
 }
