@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: chat-system
+  labels:
+    app.kubernetes.io/name: chat-system
+    app.kubernetes.io/component: namespace

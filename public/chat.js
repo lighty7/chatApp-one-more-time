@@ -1,589 +1,758 @@
-// Socket.io client
-const socket = io();
+const API_URL = window.location.origin;
 
-// DOM Elements
-const nicknameModal = document.getElementById('nicknameModal');
-const nicknameInput = document.getElementById('nicknameInput');
-const joinBtn = document.getElementById('joinBtn');
-const chatContainer = document.getElementById('chatContainer');
-const currentUserEl = document.getElementById('currentUser');
-const roomList = document.getElementById('roomList');
-const userList = document.getElementById('userList');
-const onlineCount = document.getElementById('onlineCount');
-const currentRoomEl = document.getElementById('currentRoom');
-const welcomeRoom = document.getElementById('welcomeRoom');
-const messagesContainer = document.getElementById('messagesContainer');
-const messagesEl = document.getElementById('messages');
-const messageForm = document.getElementById('messageForm');
-const messageInput = document.getElementById('messageInput');
-const typingIndicator = document.getElementById('typingIndicator');
-const typingText = document.getElementById('typingText');
+class ChatApp {
+  constructor() {
+    this.socket = null;
+    this.currentUser = null;
+    this.currentConversation = null;
+    this.currentRoom = null;
+    this.isRoom = true;
+    this.accessToken = localStorage.getItem('accessToken');
+    this.refreshToken = localStorage.getItem('refreshToken');
+    this.conversations = [];
+    this.onlineUsers = new Set();
+    this.typingTimeout = null;
+    this.heartbeatInterval = null;
 
-// File sharing elements
-const fileBtn = document.getElementById('fileBtn');
-const fileInput = document.getElementById('fileInput');
-const uploadProgress = document.getElementById('uploadProgress');
-const progressFill = document.getElementById('progressFill');
-const progressText = document.getElementById('progressText');
-const filesPanel = document.getElementById('filesPanel');
-const filesList = document.getElementById('filesList');
-const filesToggle = document.getElementById('filesToggle');
-const toggleFiles = document.getElementById('toggleFiles');
+    this.init();
+  }
 
-// Mobile menu elements
-const mobileMenuToggle = document.getElementById('mobileMenuToggle');
-const sidebar = document.querySelector('.sidebar');
-const sidebarOverlay = document.getElementById('sidebarOverlay');
-
-let nickname = '';
-let currentRoom = 'general';
-let typingTimeout;
-const typingUsers = new Map();
-let sharedFiles = new Map(); // Store shared files by ID
-
-// Join chat with nickname
-function joinChat() {
-  const name = nicknameInput.value.trim();
-  if (name) {
-    // Disable button while processing
-    joinBtn.disabled = true;
-    joinBtn.textContent = 'Joining...';
+  async init() {
+    this.setupEventListeners();
     
-    socket.emit('set-nickname', name);
-  }
-}
-
-joinBtn.addEventListener('click', joinChat);
-nicknameInput.addEventListener('keypress', (e) => {
-  if (e.key === 'Enter') joinChat();
-});
-
-// Room selection
-roomList.addEventListener('click', (e) => {
-  const roomItem = e.target.closest('.room-item');
-  if (roomItem) {
-    const room = roomItem.dataset.room;
-    if (room !== currentRoom) {
-      joinRoom(room);
-    }
-  }
-});
-
-function joinRoom(room) {
-  // Update UI
-  document.querySelectorAll('.room-item').forEach(item => {
-    item.classList.toggle('active', item.dataset.room === room);
-  });
-
-  currentRoom = room;
-  currentRoomEl.textContent = room;
-  welcomeRoom.textContent = room;
-  messagesEl.innerHTML = '';
-
-  // Join room on server
-  socket.emit('join-room', room);
-}
-
-// Send message
-messageForm.addEventListener('submit', (e) => {
-  e.preventDefault();
-  const text = messageInput.value.trim();
-
-  if (text) {
-    socket.emit('send-message', { text });
-    socket.emit('stop-typing');
-    messageInput.value = '';
-  }
-});
-
-// Typing indicator
-messageInput.addEventListener('input', () => {
-  socket.emit('typing');
-
-  clearTimeout(typingTimeout);
-  typingTimeout = setTimeout(() => {
-    socket.emit('stop-typing');
-  }, 1000);
-});
-
-// Socket event handlers
-socket.on('message-history', (messages) => {
-  messagesEl.innerHTML = '';
-  messages.forEach(msg => appendMessage(msg));
-  scrollToBottom();
-});
-
-socket.on('new-message', (message) => {
-  appendMessage(message);
-  scrollToBottom();
-});
-
-socket.on('user-joined', (data) => {
-  appendSystemMessage(`${data.nickname} joined the room`);
-});
-
-socket.on('user-left', (data) => {
-  appendSystemMessage(`${data.nickname} left the room`);
-});
-
-// Nickname event handlers
-socket.on('nickname-success', (assignedNickname) => {
-  nickname = assignedNickname;
-  currentUserEl.textContent = nickname;
-  
-  // Show success feedback
-  nicknameModal.style.display = 'none';
-  chatContainer.style.display = 'grid';
-  
-  // Join default room
-  joinRoom('general');
-  
-  console.log('Nickname assigned:', assignedNickname);
-});
-
-socket.on('nickname-updated', (data) => {
-  nickname = data.assigned;
-  currentUserEl.textContent = nickname;
-  
-  // Show success feedback
-  nicknameModal.style.display = 'none';
-  chatContainer.style.display = 'grid';
-  
-  // Show a friendly notification about the nickname change
-  appendSystemMessage(data.message);
-  
-  // Join default room
-  joinRoom('general');
-  
-  console.log('Nickname updated:', data.assigned);
-});
-
-socket.on('nickname-error', (errorMessage) => {
-  // Re-enable button and reset text
-  joinBtn.disabled = false;
-  joinBtn.textContent = 'Join Chat';
-  
-  // Show error message
-  const errorEl = document.createElement('div');
-  errorEl.style.color = '#ff6b6b';
-  errorEl.style.fontSize = '0.9rem';
-  errorEl.style.marginTop = '0.5rem';
-  errorEl.textContent = errorMessage;
-  
-  // Remove any existing error message
-  const existingError = nicknameModal.querySelector('.error-message');
-  if (existingError) {
-    existingError.remove();
-  }
-  
-  // Add new error message
-  errorEl.className = 'error-message';
-  nicknameModal.querySelector('.modal-content').appendChild(errorEl);
-  
-  // Clear error after 3 seconds
-  setTimeout(() => {
-    errorEl.remove();
-  }, 3000);
-});
-
-socket.on('room-users', (users) => {
-  userList.innerHTML = users
-    .map(u => `<li>${u.nickname}</li>`)
-    .join('');
-  onlineCount.textContent = `(${users.length})`;
-
-  // Update room user counts
-  document.getElementById(`count-${currentRoom}`).textContent = users.length;
-});
-
-socket.on('user-typing', (data) => {
-  if (data.socketId !== socket.id) {
-    typingUsers.set(data.socketId, data.nickname);
-    updateTypingIndicator();
-  }
-});
-
-socket.on('user-stop-typing', (data) => {
-  typingUsers.delete(data.socketId);
-  updateTypingIndicator();
-});
-
-// Helper functions
-function appendMessage(msg) {
-  const isOwn = msg.socketId === socket.id;
-  const time = new Date(msg.timestamp).toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit'
-  });
-
-  const messageEl = document.createElement('div');
-  messageEl.className = `message ${isOwn ? 'own' : ''} ${msg.type === 'file' ? 'file-message' : ''}`;
-  messageEl.dataset.messageId = msg.id;
-
-  // Format read-by list (exclude the sender)
-  const readByOthers = (msg.readBy || []).filter(name => name !== msg.nickname);
-  const readByText = formatReadBy(readByOthers);
-
-  let messageContent = '';
-    
-  if (msg.type === 'file' && msg.fileInfo) {
-    const file = msg.fileInfo;
-    const fileIcon = getFileIcon(file.mimetype);
-    const fileSize = formatFileSize(file.size);
-        
-    // Create preview content based on file type
-    let previewContent = '';
-    if (file.mimetype.startsWith('image/')) {
-      previewContent = `<img src="/uploads/${file.filename}" alt="${escapeHtml(file.originalName)}" class="file-preview-image">`;
-    } else if (file.mimetype.startsWith('video/')) {
-      previewContent = `<video src="/uploads/${file.filename}" class="file-preview-video" controls></video>`;
-    } else {
-      previewContent = `
-                <div class="file-icon-large">${fileIcon}</div>
-                <div class="file-info">
-                    <div class="file-name">${escapeHtml(file.originalName)}</div>
-                    <div class="file-size">${fileSize}</div>
-                </div>
-            `;
-    }
-        
-    messageContent = `
-            <div class="file-message-content">
-                <div class="file-preview" onclick="window.open('/uploads/${file.filename}', '_blank')">
-                    ${previewContent}
-                </div>
-                <div class="file-message-actions">
-                    <button class="file-download-btn" onclick="event.stopPropagation(); downloadFile('${file.filename}', '${file.originalName}')">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                            <polyline points="7 10 12 15 17 10"/>
-                            <line x1="12" y1="15" x2="12" y2="3"/>
-                        </svg>
-                        Download
-                    </button>
-                </div>
-                <div class="file-message-text">${escapeHtml(msg.text.replace(`Shared file: ${file.originalName}`, '').trim())}</div>
-            </div>
-            <div></div>
-        `;
-  } else {
-    messageContent = `<div class="message-content">${escapeHtml(msg.text)}</div>`;
-  }
-
-  messageEl.innerHTML = `
-    <div class="message-header">
-      <span class="message-author">${msg.nickname}</span>
-      <span class="message-time">${time}</span>
-      ${msg.type === 'file' ? '<span class="message-badge">📎 File</span>' : ''}
-    </div>
-    ${messageContent}
-    <div class="read-by" data-msg-id="${msg.id}">${readByText}</div>
-  `;
-
-  messagesEl.appendChild(messageEl);
-
-  // Mark as read if not own message
-  if (!isOwn) {
-    socket.emit('mark-read', msg.id);
-  }
-}
-
-function formatReadBy(readers) {
-  if (readers.length === 0) return '';
-  if (readers.length === 1) return `✓ Read by ${readers[0]}`;
-  if (readers.length === 2) return `✓ Read by ${readers[0]} and ${readers[1]}`;
-  return `✓ Read by ${readers[0]}, ${readers[1]} and ${readers.length - 2} more`;
-}
-
-// Listen for read receipt updates
-socket.on('message-read', (data) => {
-  const readByEl = document.querySelector(`.read-by[data-msg-id="${data.messageId}"]`);
-  if (readByEl) {
-    // Get the message to find the sender
-    const messageEl = readByEl.closest('.message');
-    const authorEl = messageEl?.querySelector('.message-author');
-    const senderName = authorEl?.textContent || '';
-
-    const readByOthers = data.readBy.filter(name => name !== senderName);
-    readByEl.textContent = formatReadBy(readByOthers);
-  }
-});
-
-function appendSystemMessage(text) {
-  const el = document.createElement('div');
-  el.className = 'system-message';
-  el.textContent = text;
-  messagesEl.appendChild(el);
-  scrollToBottom();
-}
-
-function updateTypingIndicator() {
-  if (typingUsers.size > 0) {
-    const names = Array.from(typingUsers.values());
-    let text;
-    if (names.length === 1) {
-      text = `${names[0]} is typing`;
-    } else if (names.length === 2) {
-      text = `${names[0]} and ${names[1]} are typing`;
-    } else {
-      text = 'Several people are typing';
-    }
-    typingText.textContent = text;
-    typingIndicator.style.display = 'flex';
-  } else {
-    typingIndicator.style.display = 'none';
-  }
-}
-
-function scrollToBottom() {
-  messagesContainer.scrollTop = messagesContainer.scrollHeight;
-}
-
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
-
-// File upload functionality
-fileBtn.addEventListener('click', () => {
-  fileInput.click();
-});
-
-fileInput.addEventListener('change', (e) => {
-  const file = e.target.files[0];
-  if (file) {
-    uploadFile(file);
-  }
-});
-
-function uploadFile(file) {
-  const formData = new FormData();
-  formData.append('file', file);
-  formData.append('nickname', nickname);
-  formData.append('room', currentRoom);
-
-  // Show progress with animation
-  uploadProgress.style.display = 'block';
-  progressFill.style.width = '0%';
-  progressText.textContent = 'Uploading...';
-
-  // Animate progress bar
-  let progress = 0;
-  const progressInterval = setInterval(() => {
-    progress += Math.random() * 15;
-    if (progress > 90) progress = 90;
-    progressFill.style.width = progress + '%';
-  }, 200);
-
-  fetch('/upload', {
-    method: 'POST',
-    body: formData
-  })
-    .then(response => response.json())
-    .then(data => {
-      clearInterval(progressInterval);
-      
-      if (data.error) {
-        throw new Error(data.error);
+    if (this.accessToken) {
+      try {
+        await this.verifyToken();
+        this.showChat();
+      } catch (error) {
+        this.showAuth();
       }
-        
-      // Complete progress animation
-      progressFill.style.width = '100%';
+    } else {
+      this.showAuth();
+    }
+  }
+
+  setupEventListeners() {
+    document.getElementById('loginForm').addEventListener('submit', (e) => this.handleLogin(e));
+    document.getElementById('registerForm').addEventListener('submit', (e) => this.handleRegister(e));
+    
+    document.querySelectorAll('.auth-tab').forEach(tab => {
+      tab.addEventListener('click', () => this.switchAuthTab(tab.dataset.tab));
+    });
+    
+    document.querySelectorAll('.switch-tab').forEach(btn => {
+      btn.addEventListener('click', () => this.switchAuthTab(btn.dataset.tab));
+    });
+
+    document.getElementById('logoutBtn').addEventListener('click', () => this.handleLogout());
+
+    document.getElementById('roomList').addEventListener('click', (e) => {
+      const roomItem = e.target.closest('.room-item');
+      if (roomItem) this.joinRoom(roomItem.dataset.room);
+    });
+
+    document.getElementById('messageForm').addEventListener('submit', (e) => this.sendMessage(e));
+    
+    document.getElementById('messageInput').addEventListener('input', () => this.handleTyping());
+    document.getElementById('messageInput').addEventListener('blur', () => this.stopTyping());
+
+    document.getElementById('fileBtn').addEventListener('click', () => {
+      document.getElementById('fileInput').click();
+    });
+    
+    document.getElementById('fileInput').addEventListener('change', (e) => this.handleFileUpload(e));
+
+    document.getElementById('userSearchInput').addEventListener('input', (e) => this.searchUsers(e.target.value));
+    document.getElementById('searchResults').addEventListener('click', (e) => {
+      const userItem = e.target.closest('.search-user-item');
+      if (userItem) this.startDirectMessage(userItem.dataset.userId);
+    });
+
+    document.getElementById('createGroupBtn').addEventListener('click', () => this.showCreateGroupModal());
+    document.getElementById('cancelGroupBtn').addEventListener('click', () => this.hideCreateGroupModal());
+    document.getElementById('createGroupForm').addEventListener('submit', (e) => this.createGroup(e));
+
+    document.getElementById('filesToggle').addEventListener('click', () => this.toggleFilesPanel());
+    document.getElementById('toggleFiles').addEventListener('click', () => this.toggleFilesPanel());
+
+    const mobileToggle = document.getElementById('mobileMenuToggle');
+    const sidebar = document.querySelector('.sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+
+    if (mobileToggle) {
+      mobileToggle.addEventListener('click', () => {
+        sidebar.classList.toggle('active');
+        overlay.classList.toggle('active');
+      });
+    }
+
+    if (overlay) {
+      overlay.addEventListener('click', () => {
+        sidebar.classList.remove('active');
+        overlay.classList.remove('active');
+      });
+    }
+  }
+
+  showAuth() {
+    document.getElementById('authModal').style.display = 'flex';
+    document.getElementById('chatContainer').style.display = 'none';
+  }
+
+  showChat() {
+    document.getElementById('authModal').style.display = 'none';
+    document.getElementById('chatContainer').style.display = 'flex';
+    this.connectSocket();
+    this.loadConversations();
+    this.loadRooms();
+  }
+
+  switchAuthTab(tab) {
+    document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+    document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+
+    document.getElementById('loginForm').style.display = tab === 'login' ? 'block' : 'none';
+    document.getElementById('registerForm').style.display = tab === 'register' ? 'block' : 'none';
+    document.getElementById('authError').textContent = '';
+  }
+
+  async handleLogin(e) {
+    e.preventDefault();
+    const email = document.getElementById('loginEmail').value;
+    const password = document.getElementById('loginPassword').value;
+    const errorEl = document.getElementById('authError');
+
+    try {
+      const res = await fetch(`${API_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+
+      const data = await res.json();
+      
+      if (!res.ok) throw new Error(data.error);
+
+      this.accessToken = data.accessToken;
+      this.refreshToken = data.refreshToken;
+      localStorage.setItem('accessToken', data.accessToken);
+      localStorage.setItem('refreshToken', data.refreshToken);
+      
+      this.currentUser = data.user;
+      this.showChat();
+    } catch (error) {
+      errorEl.textContent = error.message;
+    }
+  }
+
+  async handleRegister(e) {
+    e.preventDefault();
+    const username = document.getElementById('regUsername').value;
+    const email = document.getElementById('regEmail').value;
+    const displayName = document.getElementById('regDisplayName').value;
+    const password = document.getElementById('regPassword').value;
+    const errorEl = document.getElementById('authError');
+
+    try {
+      const res = await fetch(`${API_URL}/api/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, email, password, displayName })
+      });
+
+      const data = await res.json();
+      
+      if (!res.ok) throw new Error(data.error);
+
+      this.accessToken = data.accessToken;
+      this.refreshToken = data.refreshToken;
+      localStorage.setItem('accessToken', data.accessToken);
+      localStorage.setItem('refreshToken', data.refreshToken);
+      
+      this.currentUser = data.user;
+      this.showChat();
+    } catch (error) {
+      errorEl.textContent = error.message;
+    }
+  }
+
+  async handleLogout() {
+    try {
+      await fetch(`${API_URL}/api/auth/logout`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.accessToken}`
+        }
+      });
+    } catch (e) {}
+
+    this.accessToken = null;
+    this.refreshToken = null;
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    
+    if (this.socket) this.socket.disconnect();
+    
+    this.currentUser = null;
+    this.currentConversation = null;
+    this.currentRoom = null;
+    this.showAuth();
+  }
+
+  async verifyToken() {
+    const res = await fetch(`${API_URL}/api/auth/me`, {
+      headers: { 'Authorization': `Bearer ${this.accessToken}` }
+    });
+
+    if (!res.ok) {
+      if (this.refreshToken) {
+        await this.refreshAccessToken();
+      } else {
+        throw new Error('Invalid token');
+      }
+    } else {
+      this.currentUser = await res.json();
+    }
+  }
+
+  async refreshAccessToken() {
+    const res = await fetch(`${API_URL}/api/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken: this.refreshToken })
+    });
+
+    if (!res.ok) throw new Error('Token refresh failed');
+
+    const data = await res.json();
+    this.accessToken = data.accessToken;
+    this.refreshToken = data.refreshToken;
+    localStorage.setItem('accessToken', data.accessToken);
+    localStorage.setItem('refreshToken', data.refreshToken);
+    this.currentUser = data.user;
+  }
+
+  connectSocket() {
+    this.socket = io({
+      auth: { token: this.accessToken }
+    });
+
+    this.socket.on('authenticated', (data) => {
+      console.log('WebSocket authenticated');
+      this.startHeartbeat();
+    });
+
+    this.socket.on('connect', () => {
+      console.log('Connected to server');
+    });
+
+    this.socket.on('disconnect', (reason) => {
+      console.log('Disconnected:', reason);
+      this.stopHeartbeat();
+    });
+
+    this.socket.on('error', (error) => {
+      console.error('Socket error:', error);
+    });
+
+    this.setupSocketListeners();
+  }
+
+  setupSocketListeners() {
+    this.socket.on('new-message', (message) => this.handleNewMessage(message));
+    this.socket.on('room-message', (message) => this.handleRoomMessage(message));
+    this.socket.on('user-joined-room', (data) => this.handleUserJoined(data));
+    this.socket.on('user-left-room', (data) => this.handleUserLeft(data));
+    this.socket.on('room-message', (message) => this.displayRoomMessage(message));
+    
+    this.socket.on('user-typing', (data) => this.showTypingIndicator(data));
+    this.socket.on('user-stop-typing', (data) => this.hideTypingIndicator(data));
+    
+    this.socket.on('presence:online', (data) => this.handlePresenceChange(data, true));
+    this.socket.on('presence:offline', (data) => this.handlePresenceChange(data, false));
+    this.socket.on('presence:user-status', (data) => this.handleUserStatusChange(data));
+
+    this.socket.on('file-shared', (file) => this.handleFileShared(file));
+    this.socket.on('files-history', (files) => this.displayFiles(files));
+  }
+
+  startHeartbeat() {
+    this.heartbeatInterval = setInterval(() => {
+      this.socket.emit('heartbeat');
+    }, 5000);
+  }
+
+  stopHeartbeat() {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
+  }
+
+  async loadConversations() {
+    try {
+      const res = await fetch(`${API_URL}/api/conversations`, {
+        headers: { 'Authorization': `Bearer ${this.accessToken}` }
+      });
+      this.conversations = await res.json();
+      this.renderConversations();
+    } catch (error) {
+      console.error('Error loading conversations:', error);
+    }
+  }
+
+  renderConversations() {
+    const dmList = document.getElementById('dmList');
+    dmList.innerHTML = '';
+
+    this.conversations.forEach(conv => {
+      const displayName = conv.displayName || conv.name || 'Unknown';
+      const li = document.createElement('li');
+      li.className = 'conversation-item';
+      li.dataset.conversationId = conv._id;
+      li.innerHTML = `
+        <span class="conv-avatar">${displayName.charAt(0).toUpperCase()}</span>
+        <span class="conv-name">${displayName}</span>
+        ${conv.unreadCount > 0 ? `<span class="unread-badge">${conv.unreadCount}</span>` : ''}
+      `;
+      li.addEventListener('click', () => this.joinConversation(conv._id));
+      dmList.appendChild(li);
+    });
+  }
+
+  async loadRooms() {
+    try {
+      const res = await fetch(`${API_URL}/api/rooms`);
+      const rooms = await res.json();
+      rooms.forEach(room => {
+        const countEl = document.getElementById(`count-${room.name}`);
+        if (countEl) countEl.textContent = room.userCount || 0;
+      });
+    } catch (error) {
+      console.error('Error loading rooms:', error);
+    }
+  }
+
+  async joinRoom(roomName) {
+    this.isRoom = true;
+    this.currentRoom = roomName;
+    this.currentConversation = null;
+
+    document.querySelectorAll('.room-item').forEach(r => r.classList.remove('active'));
+    document.querySelectorAll('.conversation-item').forEach(c => c.classList.remove('active'));
+    document.querySelector(`[data-room="${roomName}"]`)?.classList.add('active');
+
+    document.getElementById('currentRoom').textContent = roomName;
+    document.getElementById('roomInfo').innerHTML = `<span class="room-hash">#</span><span>${roomName}</span>`;
+    document.getElementById('chatTypeBadge').textContent = 'Room';
+    document.getElementById('messageInput').disabled = false;
+    document.querySelector('.btn-send').disabled = false;
+
+    this.socket.emit('join-room', { roomName }, (response) => {
+      if (response.success) {
+        this.displayMessages(response.messages || []);
+        this.updateRoomUsers(response.users || []);
+      }
+    });
+
+    this.loadRoomFiles(roomName);
+    this.hideWelcome();
+  }
+
+  async joinConversation(conversationId) {
+    this.isRoom = false;
+    this.currentConversation = conversationId;
+    this.currentRoom = null;
+
+    document.querySelectorAll('.room-item').forEach(r => r.classList.remove('active'));
+    document.querySelectorAll('.conversation-item').forEach(c => c.classList.remove('active'));
+    document.querySelector(`[data-conversation-id="${conversationId}"]`)?.classList.add('active');
+
+    const conv = this.conversations.find(c => c._id === conversationId);
+    if (conv) {
+      document.getElementById('roomInfo').innerHTML = `
+        <span class="conv-avatar-small">${conv.displayName?.charAt(0).toUpperCase() || '?'}</span>
+        <span>${conv.displayName}</span>
+      `;
+      document.getElementById('chatTypeBadge').textContent = conv.type === 'direct' ? 'Direct Message' : 'Group';
+    }
+
+    document.getElementById('messageInput').disabled = false;
+    document.querySelector('.btn-send').disabled = false;
+
+    this.socket.emit('join-conversation', { conversationId }, (response) => {
+      if (response.success) {
+        this.displayMessages(response.messages || []);
+      }
+    });
+
+    this.hideWelcome();
+  }
+
+  async startDirectMessage(userId) {
+    document.getElementById('searchResults').style.display = 'none';
+    document.getElementById('userSearchInput').value = '';
+
+    try {
+      const res = await fetch(`${API_URL}/api/conversations/direct`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.accessToken}`
+        },
+        body: JSON.stringify({ userId })
+      });
+
+      if (!res.ok) throw new Error('Failed to create conversation');
+      
+      const conversation = await res.json();
+      await this.loadConversations();
+      this.joinConversation(conversation._id);
+    } catch (error) {
+      console.error('Error starting DM:', error);
+    }
+  }
+
+  async searchUsers(query) {
+    const resultsEl = document.getElementById('searchResults');
+    
+    if (!query || query.length < 2) {
+      resultsEl.style.display = 'none';
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_URL}/api/users?q=${encodeURIComponent(query)}`, {
+        headers: { 'Authorization': `Bearer ${this.accessToken}` }
+      });
+      const users = await res.json();
+
+      resultsEl.innerHTML = users
+        .filter(u => u._id !== this.currentUser?._id)
+        .map(u => `
+          <div class="search-user-item" data-user-id="${u._id}">
+            <span class="user-avatar">${u.username.charAt(0).toUpperCase()}</span>
+            <span class="user-info">
+              <span class="user-name">${u.displayName || u.username}</span>
+              <span class="user-status ${u.isOnline ? 'online' : 'offline'}">${u.isOnline ? 'Online' : 'Offline'}</span>
+            </span>
+          </div>
+        `).join('');
+      
+      resultsEl.style.display = users.length ? 'block' : 'none';
+    } catch (error) {
+      console.error('Error searching users:', error);
+    }
+  }
+
+  async showCreateGroupModal() {
+    document.getElementById('createGroupModal').style.display = 'flex';
+    
+    try {
+      const res = await fetch(`${API_URL}/api/users`, {
+        headers: { 'Authorization': `Bearer ${this.accessToken}` }
+      });
+      const users = await res.json();
+
+      const select = document.getElementById('groupParticipants');
+      select.innerHTML = users
+        .filter(u => u._id !== this.currentUser?._id)
+        .map(u => `<option value="${u._id}">${u.displayName || u.username}</option>`)
+        .join('');
+    } catch (error) {
+      console.error('Error loading users:', error);
+    }
+  }
+
+  hideCreateGroupModal() {
+    document.getElementById('createGroupModal').style.display = 'none';
+    document.getElementById('createGroupForm').reset();
+  }
+
+  async createGroup(e) {
+    e.preventDefault();
+    const name = document.getElementById('groupName').value;
+    const description = document.getElementById('groupDescription').value;
+    const select = document.getElementById('groupParticipants');
+    const participantIds = Array.from(select.selectedOptions).map(o => o.value);
+
+    try {
+      const res = await fetch(`${API_URL}/api/conversations/group`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.accessToken}`
+        },
+        body: JSON.stringify({ name, description, participantIds })
+      });
+
+      if (!res.ok) throw new Error('Failed to create group');
+      
+      const conversation = await res.json();
+      await this.loadConversations();
+      this.hideCreateGroupModal();
+      this.joinConversation(conversation._id);
+    } catch (error) {
+      console.error('Error creating group:', error);
+    }
+  }
+
+  sendMessage(e) {
+    e.preventDefault();
+    const input = document.getElementById('messageInput');
+    const content = input.value.trim();
+    
+    if (!content) return;
+
+    if (this.isRoom && this.currentRoom) {
+      this.socket.emit('send-room-message', {
+        roomName: this.currentRoom,
+        content
+      }, (response) => {
+        if (response.success) {
+          input.value = '';
+          this.stopTyping();
+        }
+      });
+    } else if (this.currentConversation) {
+      this.socket.emit('send-message', {
+        conversationId: this.currentConversation,
+        content
+      }, (response) => {
+        if (response.success) {
+          input.value = '';
+          this.stopTyping();
+        }
+      });
+    }
+  }
+
+  handleTyping() {
+    if (this.isRoom && this.currentRoom) {
+      this.socket.emit('send-room-typing', { roomName: this.currentRoom });
+    } else if (this.currentConversation) {
+      this.socket.emit('typing', { conversationId: this.currentConversation });
+    }
+
+    clearTimeout(this.typingTimeout);
+    this.typingTimeout = setTimeout(() => this.stopTyping(), 2000);
+  }
+
+  stopTyping() {
+    if (this.isRoom && this.currentRoom) {
+      this.socket.emit('send-room-stop-typing', { roomName: this.currentRoom });
+    } else if (this.currentConversation) {
+      this.socket.emit('stop-typing', { conversationId: this.currentConversation });
+    }
+  }
+
+  async handleFileUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const progressEl = document.getElementById('uploadProgress');
+    const progressFill = document.getElementById('progressFill');
+    const progressText = document.getElementById('progressText');
+
+    progressEl.style.display = 'block';
+    progressText.textContent = 'Uploading...';
+
+    try {
+      const endpoint = this.currentConversation 
+        ? `${API_URL}/api/files/upload?conversationId=${this.currentConversation}`
+        : this.currentRoom
+          ? `${API_URL}/api/files/upload?roomId=${this.currentRoom}`
+          : `${API_URL}/api/files/upload`;
+
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${this.accessToken}` },
+        body: formData
+      });
+
+      if (!res.ok) throw new Error('Upload failed');
+
+      const fileData = await res.json();
+      
+      if (this.currentConversation) {
+        this.socket.emit('send-message', {
+          conversationId: this.currentConversation,
+          content: `Shared a file: ${fileData.originalName}`,
+          type: 'file',
+          attachmentId: fileData._id
+        });
+      } else if (this.currentRoom) {
+        this.socket.emit('send-room-message', {
+          roomName: this.currentRoom,
+          content: `Shared a file: ${fileData.originalName}`
+        });
+      }
+
       progressText.textContent = 'Upload complete!';
-        
-      // Store file info
-      sharedFiles.set(data.id, data);
-        
-      // Add system message about file
-      const fileMessage = {
-        id: Date.now(),
-        nickname: nickname,
-        text: `Shared file: ${data.originalName}`,
-        timestamp: new Date().toISOString(),
-        type: 'file',
-        fileInfo: data
-      };
-        
-      socket.emit('send-message', fileMessage);
-        
-      // Hide progress after delay
-      setTimeout(() => {
-        uploadProgress.style.display = 'none';
-        progressFill.style.width = '0%';
-      }, 1000);
-        
-      // Clear file input
-      fileInput.value = '';
-      
-      // Show success message
-      appendSystemMessage(`📎 File "${data.originalName}" shared successfully!`);
-    })
-    .catch(error => {
-      clearInterval(progressInterval);
-      console.error('Upload error:', error);
-      progressFill.style.background = 'linear-gradient(90deg, #ff6b6b, #ff5252)';
+      setTimeout(() => progressEl.style.display = 'none', 2000);
+    } catch (error) {
       progressText.textContent = 'Upload failed';
-      
-      setTimeout(() => {
-        uploadProgress.style.display = 'none';
-        progressFill.style.width = '0%';
-        progressFill.style.background = '';
-      }, 3000);
-      
-      appendSystemMessage('❌ File upload failed. Please try again.');
-    });
-}
+      setTimeout(() => progressEl.style.display = 'none', 2000);
+    }
 
-// Files panel toggle
-filesToggle.addEventListener('click', () => {
-  filesPanel.style.display = filesPanel.style.display === 'none' ? 'block' : 'none';
-  if (filesPanel.style.display === 'block') {
-    loadSharedFiles();
+    e.target.value = '';
   }
-});
 
-toggleFiles.addEventListener('click', () => {
-  filesPanel.style.display = 'none';
-});
-
-// Mobile menu functionality
-mobileMenuToggle.addEventListener('click', () => {
-  sidebar.classList.toggle('open');
-  sidebarOverlay.classList.toggle('active');
-});
-
-sidebarOverlay.addEventListener('click', () => {
-  sidebar.classList.remove('open');
-  sidebarOverlay.classList.remove('active');
-});
-
-function loadSharedFiles() {
-  fetch(`/api/files/${currentRoom}`)
-    .then(res => res.json())
-    .then(files => {
-      displaySharedFiles(files);
-    });
-}
-
-function displaySharedFiles(files) {
-  filesList.innerHTML = '';
-    
-  if (files.length === 0) {
-    filesList.innerHTML = '<p class="no-files">No files shared yet</p>';
-    return;
+  handleNewMessage(message) {
+    if (this.currentConversation === message.conversationId) {
+      this.displayMessage(message);
+    }
+    this.updateConversationLastMessage(message);
   }
-    
-  files.forEach(file => {
-    const fileItem = document.createElement('div');
-    fileItem.className = 'file-item';
-        
-    const fileIcon = getFileIcon(file.mimetype);
-    const fileSize = formatFileSize(file.size);
-    const uploadTime = new Date(file.uploadTime).toLocaleString();
-        
-    fileItem.innerHTML = `
-            <div class="file-info">
-                <div class="file-icon">${fileIcon}</div>
-                <div class="file-details">
-                    <div class="file-name" title="${file.originalName}">${file.originalName}</div>
-                    <div class="file-meta">
-                        <span class="file-size">${fileSize}</span>
-                        <span class="file-time">${uploadTime}</span>
-                        <span class="file-uploader">by ${file.uploadedBy}</span>
-                    </div>
-                </div>
-            </div>
-            <div class="file-actions">
-                <button class="btn-download" onclick="downloadFile('${file.filename}', '${file.originalName}')" title="Download">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                        <polyline points="7 10 12 15 17 10"/>
-                        <line x1="12" y1="15" x2="12" y2="3"/>
-                    </svg>
-                </button>
-            </div>
-        `;
-        
-    filesList.appendChild(fileItem);
-  });
-}
 
-function getFileIcon(mimetype) {
-  if (mimetype.startsWith('image/')) {
-    return '🖼️';
-  } else if (mimetype.startsWith('video/')) {
-    return '🎥';
-  } else if (mimetype.startsWith('audio/')) {
-    return '🎵';
-  } else if (mimetype.includes('pdf')) {
-    return '📄';
-  } else if (mimetype.includes('zip') || mimetype.includes('rar')) {
-    return '📦';
-  } else if (mimetype.includes('text')) {
-    return '📝';
-  } else {
-    return '📎';
+  handleRoomMessage(message) {
+    if (this.currentRoom === message.roomName) {
+      this.displayRoomMessage(message);
+    }
+  }
+
+  displayMessages(messages) {
+    const container = document.getElementById('messages');
+    container.innerHTML = '';
+    messages.forEach(msg => this.displayMessage(msg));
+  }
+
+  displayMessage(message) {
+    const container = document.getElementById('messages');
+    const isOwn = message.sender._id === this.currentUser?._id;
+    
+    const div = document.createElement('div');
+    div.className = `message ${isOwn ? 'own' : ''}`;
+    div.innerHTML = `
+      ${!isOwn ? `<span class="message-author">${message.sender.displayName || message.sender.username}</span>` : ''}
+      <p class="message-content">${this.escapeHtml(message.content)}</p>
+      <span class="message-time">${this.formatTime(message.createdAt)}</span>
+    `;
+    
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+  }
+
+  displayRoomMessage(message) {
+    const container = document.getElementById('messages');
+    const isOwn = message.sender.userId === this.currentUser?._id;
+    
+    const div = document.createElement('div');
+    div.className = `message ${isOwn ? 'own' : ''}`;
+    div.innerHTML = `
+      ${!isOwn ? `<span class="message-author">User</span>` : ''}
+      <p class="message-content">${this.escapeHtml(message.content)}</p>
+      <span class="message-time">${this.formatTime(message.timestamp)}</span>
+    `;
+    
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+  }
+
+  handleUserJoined(data) {
+    this.updateRoomUsers(data.users);
+  }
+
+  handleUserLeft(data) {
+    this.updateRoomUsers(data.users);
+  }
+
+  updateRoomUsers(users) {
+    document.getElementById('onlineCount').textContent = `(${users.length})`;
+  }
+
+  showTypingIndicator(data) {
+    const indicator = document.getElementById('typingIndicator');
+    const text = document.getElementById('typingText');
+    text.textContent = 'Someone is typing...';
+    indicator.style.display = 'flex';
+  }
+
+  hideTypingIndicator() {
+    document.getElementById('typingIndicator').style.display = 'none';
+  }
+
+  handlePresenceChange(data, isOnline) {
+    if (isOnline) {
+      this.onlineUsers.add(data.userId);
+    } else {
+      this.onlineUsers.delete(data.userId);
+    }
+  }
+
+  handleUserStatusChange(data) {
+    if (data.status === 'online') {
+      this.onlineUsers.add(data.userId);
+    } else {
+      this.onlineUsers.delete(data.userId);
+    }
+  }
+
+  async loadRoomFiles(roomName) {
+    try {
+      const res = await fetch(`${API_URL}/api/files/room/${roomName}`);
+      const files = await res.json();
+      this.displayFiles(files);
+    } catch (error) {
+      console.error('Error loading files:', error);
+    }
+  }
+
+  displayFiles(files) {
+    const list = document.getElementById('filesList');
+    list.innerHTML = files.map(f => `
+      <div class="file-item">
+        <span class="file-icon">📄</span>
+        <span class="file-name">${f.originalName}</span>
+        <a href="${f.url}" target="_blank" class="file-download">Download</a>
+      </div>
+    `).join('');
+  }
+
+  handleFileShared(file) {
+    this.loadRoomFiles(this.currentRoom);
+  }
+
+  toggleFilesPanel() {
+    const panel = document.getElementById('filesPanel');
+    const toggle = document.getElementById('filesToggle');
+    
+    if (panel.style.display === 'none') {
+      panel.style.display = 'block';
+      toggle.style.display = 'none';
+    } else {
+      panel.style.display = 'none';
+      toggle.style.display = 'flex';
+    }
+  }
+
+  hideWelcome() {
+    document.getElementById('welcomeMessage').style.display = 'none';
+  }
+
+  updateConversationLastMessage(message) {
+    const conv = this.conversations.find(c => c._id === message.conversationId);
+    if (conv) {
+      conv.lastMessage = message;
+      this.renderConversations();
+    }
+  }
+
+  formatTime(date) {
+    return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+
+  escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
   }
 }
 
-function formatFileSize(bytes) {
-  if (bytes === 0) return '0 Bytes';
-  const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
-}
-
-function downloadFile(filename, originalName) {
-  const link = document.createElement('a');
-  link.href = `/download/${filename}`;
-  link.download = originalName;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-}
-
-// Socket event for file sharing
-socket.on('file-shared', (fileInfo) => {
-  sharedFiles.set(fileInfo.id, fileInfo);
-    
-  // Add system message about new file
-  const fileMessage = {
-    id: Date.now(),
-    nickname: fileInfo.uploadedBy,
-    text: `Shared a file: ${fileInfo.originalName}`,
-    timestamp: fileInfo.uploadTime,
-    type: 'file',
-    fileInfo: fileInfo
-  };
-    
-  appendMessage(fileMessage);
-  scrollToBottom();
-    
-  // Refresh files panel if visible
-  if (filesPanel.style.display === 'block') {
-    loadSharedFiles();
-  }
+document.addEventListener('DOMContentLoaded', () => {
+  window.chatApp = new ChatApp();
 });
-
-// Files history
-socket.on('files-history', (files) => {
-  files.forEach(file => {
-    sharedFiles.set(file.id, file);
-  });
-    
-  if (filesPanel.style.display === 'block') {
-    displaySharedFiles(files);
-  }
-});
-
-// Fetch room counts on load
-fetch('/api/rooms')
-  .then(res => res.json())
-  .then(rooms => {
-    rooms.forEach(room => {
-      const countEl = document.getElementById(`count-${room.name}`);
-      if (countEl) countEl.textContent = room.userCount;
-    });
-  });

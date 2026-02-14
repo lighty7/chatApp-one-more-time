@@ -1,15 +1,16 @@
 {
   "name": "chatterbox",
-  "version": "1.0.0",
-  "description": "A modern real-time chat application with Socket.io featuring multiple rooms, message history, and typing indicators",
+  "version": "2.0.0",
+  "description": "Production-ready real-time chat application with Socket.io, MongoDB, Redis, and S3 support",
   "private": false,
   "main": "server.js",
   "scripts": {
-    "test": "mocha --exit tests/*",
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "lint": "eslint . --ext .js",
-    "lint:fix": "eslint . --ext .js --fix",
+    "worker": "node src/queue/worker.js",
+    "test": "mocha --exit tests/*",
+    "lint": "eslint src/ --ext .js",
+    "lint:fix": "eslint src/ --ext .js --fix",
     "security:check": "npm audit --audit-level high"
   },
   "keywords": [
@@ -18,10 +19,20 @@
     "socket.io",
     "websocket",
     "nodejs",
-    "express"
+    "express",
+    "mongodb",
+    "redis",
+    "scaling"
   ],
   "author": "Qugates",
   "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Qugates/chatterbox"
+  },
   "devDependencies": {
     "eslint": "^8.57.0",
     "mocha": "^10.2.0",
@@ -31,14 +42,18 @@
   },
   "dependencies": {
     "express": "^4.18.2",
+    "socket.io": "^4.8.1",
+    "mongoose": "^8.0.0",
+    "ioredis": "^5.3.2",
+    "jsonwebtoken": "^9.0.2",
+    "bcryptjs": "^2.4.3",
     "multer": "^1.4.5-lts.1",
-    "socket.io": "^4.8.1"
-  },
-  "engines": {
-    "node": ">=18.0.0"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/Qugates/chatterbox"
+    "multer-s3": "^3.0.1",
+    "@aws-sdk/client-s3": "^3.490.0",
+    "@aws-sdk/s3-request-presigner": "^3.490.0",
+    "dotenv": "^16.3.1",
+    "helmet": "^7.1.0",
+    "cors": "^2.8.5",
+    "express-rate-limit": "^7.1.5"
   }
 }

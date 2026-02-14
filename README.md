@@ -1,208 +1,432 @@
-<p align="center">
-  <img src="https://img.icons8.com/fluency/96/chat.png" alt="ChatterBox Logo" width="80"/>
-</p>
-
-<h1 align="center">ChatterBox</h1>
+# ChatterBox - Production Real-Time Chat System
 
 <p align="center">
-  <strong>A modern, real-time chat application built with Socket.io</strong>
+  <img src="https://img.shields.io/badge/Node.js-18+-green?style=for-the-badge&logo=node.js" alt="Node.js">
+  <img src="https://img.shields.io/badge/Socket.io-4.8+-green?style=for-the-badge" alt="Socket.io">
+  <img src="https://img.shields.io/badge/MongoDB-7+-green?style=for-the-badge&logo=mongodb" alt="MongoDB">
+  <img src="https://img.shields.io/badge/Redis-7+-green?style=for-the-badge&logo=redis" alt="Redis">
+  <img src="https://img.shields.io/badge/Docker-20+-blue?style=for-the-badge&logo=docker" alt="Docker">
+  <img src="https://img.shields.io/badge/Kubernetes-1.28+-blue?style=for-the-badge&logo=kubernetes" alt="Kubernetes">
 </p>
 
-<p align="center">
-  <a href="#features">Features</a> •
-  <a href="#demo">Demo</a> •
-  <a href="#installation">Installation</a> •
-  <a href="#usage">Usage</a> •
-  <a href="#tech-stack">Tech Stack</a> •
-  <a href="#contributing">Contributing</a>
-</p>
-
-<p align="center">
-  <img src="https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen" alt="Node Version"/>
-  <img src="https://img.shields.io/badge/license-MIT-blue" alt="License"/>
-  <img src="https://img.shields.io/badge/PRs-welcome-orange" alt="PRs Welcome"/>
-</p>
+A scalable, production-ready real-time chat application built with Node.js, Socket.io, MongoDB, and Redis. Supports room-based chat, 1:1 messaging, group chats, file sharing, and more.
 
 ---
 
-## ✨ Features
+## Features
 
-| Feature                    | Description                                       |
-| -------------------------- | ------------------------------------------------- |
-| 🏠 **Multiple Rooms**      | Switch between chat rooms (general, random, tech) |
-| 💬 **Real-time Messaging** | Instant message delivery using WebSockets         |
-| 📜 **Message History**     | Last 50 messages stored per room                  |
-| ⌨️ **Typing Indicators**   | See when others are typing                        |
-| 👤 **User Nicknames**      | Custom display names for each user                |
-| 📎 **File Sharing**        | Share images and videos (mobile optimized)         |
-| 🌙 **Dark Theme**          | Beautiful modern UI with glassmorphism            |
-| 📱 **Mobile Optimized**    | Perfect for mobile devices with responsive design |
+### Core Features
+- **Room-based Chat** - Public rooms (general, random, tech) with real-time messaging
+- **1:1 Chat** - Direct messages between users with user search
+- **Group Chat** - Create groups with multiple participants and admin controls
+- **User Authentication** - JWT-based registration and login
+- **Real-time Messaging** - Instant message delivery via WebSocket
 
-## 🎥 Demo
+### Advanced Features
+- **Online/Offline Presence** - Live user status with heartbeat system
+- **Typing Indicators** - Show when users are typing
+- **Read Receipts** - Track message read status
+- **File Sharing** - Upload and share files (images, videos, documents)
+- **Message History** - Persistent message storage with pagination
 
-1. Open the app in multiple browser tabs
-2. Enter different nicknames
-3. Join rooms and start chatting!
+### Scalability Features
+- **Event-Driven Architecture** - Redis Streams for message queuing
+- **Horizontal Scaling** - Ready for multi-instance deployment
+- **Sticky Sessions** - Session affinity via nginx ingress
+- **Rate Limiting** - Redis-based token bucket rate limiting
+- **Message Queue** - Async message processing with workers
 
-## 🚀 Installation
+---
 
-### Prerequisites
+## Architecture
 
-- [Node.js](https://nodejs.org/) (v18 or higher)
-- npm or yarn
-
-### Setup
-
-```bash
-# Clone the repository
-git clone https://github.com/Qugates/chatterbox.git
-
-# Navigate to project directory
-cd chatterbox
-
-# Install dependencies
-npm install
-
-# Start the server
-npm start
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              PRODUCTION ARCHITECTURE                         │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │                        KUBERNETES CLUSTER                             │   │
+│  │                                                                       │   │
+│  │   ┌─────────┐    ┌─────────┐    ┌─────────┐                         │   │
+│  │   │ Ingress │    │ Ingress │    │ Ingress │  (Sticky Sessions)       │   │
+│  │   │ nginx   │    │ nginx   │    │ nginx   │                         │   │
+│  │   └────┬────┘    └────┬────┘    └────┬────┘                         │   │
+│  │        │              │              │                                │   │
+│  │   ┌────▼────┐    ┌────▼────┐    ┌────▼────┐                         │   │
+│  │   │API Pod  │    │API Pod  │    │API Pod  │  (REST API - Horizontal) │   │
+│  │   │         │    │         │    │         │                         │   │
+│  │   └────┬────┘    └────┬────┘    └────┬────┘                         │   │
+│  │        │              │              │                                │   │
+│  │   ┌────▼────┐    ┌────▼────┐    ┌────▼────┐                         │   │
+│  │   │WS Pod   │    │WS Pod   │    │WS Pod   │  (Socket.io - Horizontal)│   │
+│  │   │         │    │         │    │         │                         │   │
+│  │   └────┬────┘    └────┬────┘    └────┬────┘                         │   │
+│  │        └──────────────┼──────────────┘                                │   │
+│  │                       │                                                │   │
+│  └───────────────────────┼────────────────────────────────────────────────┘   │
+│                          │                                                     │
+│  ┌───────────────────────▼────────────────────────────────────────────────┐   │
+│  │                        REDIS CLUSTER                                    │   │
+│  │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐     │   │
+│  │  │ Session │  │ Pub/Sub │  │ Streams │  │Presence │  │  Rate   │     │   │
+│  │  │  Cache  │  │ Events  │  │  Queue  │  │ Tracker │  │ Limiter │     │   │
+│  │  └─────────┘  └─────────┘  └─────────┘  └─────────┘  └─────────┘     │   │
+│  └───────────────────────────────────────────────────────────────────────┘   │
+│                                                                              │
+│  ┌───────────────────────────────────────────────────────────────────────┐   │
+│  │                    MONGODB REPLICA SET                                │   │
+│  │  ┌─────────┐  ┌─────────┐  ┌─────────┐                              │   │
+│  │  │ Primary │  │Secondary│  │Secondary│                              │   │
+│  │  └─────────┘  └─────────┘  └─────────┘                              │   │
+│  └───────────────────────────────────────────────────────────────────────┘   │
+│                                                                              │
+│  ┌───────────────────────────────────────────────────────────────────────┐   │
+│  │                    MINIO (S3-Compatible)                              │   │
+│  │  ┌─────────────────┐  ┌─────────────────┐                            │   │
+│  │  │  Chat Files    │  │  Attachments    │                            │   │
+│  │  │   Bucket       │  │    Bucket       │                            │   │
+│  │  └─────────────────┘  └─────────────────┘                            │   │
+│  └───────────────────────────────────────────────────────────────────────┘   │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-The app will be running at **http://localhost:10000** 🎉
+---
 
-## 🚀 Quick Deploy to Render (Free)
+## Quick Start (Development)
 
-1. Fork this repository
-2. Go to [render.com](https://render.com)
-3. Connect your GitHub account
-4. Click "New +" → "Web Service"
-5. Select your forked repository
-6. Use these settings:
-   - **Name**: chatterbox
-   - **Runtime**: Node
-   - **Build Command**: `npm install`
-   - **Start Command**: `npm start`
-   - **Instance Type**: Free
+### Prerequisites
+- Node.js 18+
+- Docker & Docker Compose
+- MongoDB (optional - via Docker)
+- Redis (optional - via Docker)
 
-Your app will be live at `https://your-app-name.onrender.com` 🎉
+### Installation
 
-## 📱 Mobile Features
-
-- ✅ **Mobile-optimized responsive design**
-- ✅ **Hamburger menu for sidebar**
-- ✅ **Touch-friendly buttons**
-- ✅ **Image and video file sharing**
-- ✅ **Mobile file upload interface**
-
-## 💡 Usage
-
-### Starting the Server
-
+1. **Clone the repository**
 ```bash
-# Production
-npm start
+git clone https://github.com/Qugates/chatterbox.git
+cd chatterbox
+```
 
-# Development
+2. **Install dependencies**
+```bash
+npm install
+```
+
+3. **Start with Docker Compose (Recommended)**
+```bash
+docker-compose -f docker/docker-compose.dev.yml up -d
+```
+
+4. **Access the application**
+- Web UI: http://localhost:3000
+- API: http://localhost:3000/api
+- Health: http://localhost:3000/api/health
+
+### Manual Setup (Without Docker)
+
+1. **Start MongoDB**
+```bash
+docker run -d -p 27017:27017 --name mongodb mongo:7
+```
+
+2. **Start Redis**
+```bash
+docker run -d -p 6379:6379 --name redis redis:7-alpine
+```
+
+3. **Configure environment**
+```bash
+cp .env.example .env
+# Edit .env with your settings
+```
+
+4. **Start the server**
+```bash
 npm run dev
 ```
 
-### Environment Variables
+---
 
-| Variable | Default | Description |
-| -------- | ------- | ----------- |
-| `PORT`   | `10000`  | Server port (Render auto-sets this) |
+## Production Deployment
 
-### API Endpoints
+### Docker Compose (Single Server)
 
-| Method | Endpoint     | Description                          |
-| ------ | ------------ | ------------------------------------ |
-| GET    | `/`          | Serve chat application               |
-| GET    | `/api`       | Health check                         |
-| GET    | `/api/rooms` | Get available rooms with user counts |
-
-### Socket Events
-
-**Client → Server:**
-| Event | Payload | Description |
-|-------|---------|-------------|
-| `set-nickname` | `string` | Set user's display name |
-| `join-room` | `string` | Join a chat room |
-| `send-message` | `{ text: string }` | Send a message |
-| `typing` | - | Notify others you're typing |
-| `stop-typing` | - | Stop typing notification |
-
-**Server → Client:**
-| Event | Payload | Description |
-|-------|---------|-------------|
-| `message-history` | `Message[]` | Previous messages in room |
-| `new-message` | `Message` | New message received |
-| `user-joined` | `{ nickname, room }` | User joined notification |
-| `user-left` | `{ nickname, room }` | User left notification |
-| `room-users` | `User[]` | Current users in room |
-| `user-typing` | `{ nickname }` | Someone is typing |
-| `user-stop-typing` | `{ nickname }` | Someone stopped typing |
-
-## 🛠️ Tech Stack
-
-- **Runtime:** Node.js
-- **Framework:** Express.js
-- **Real-time:** Socket.io
-- **Frontend:** Vanilla HTML/CSS/JS
-- **Testing:** Mocha + Supertest
-
-## 📁 Project Structure
-
-```
-chatterbox/
-├── server.js           # Express + Socket.io server
-├── public/
-│   ├── index.html      # Chat interface
-│   ├── style.css       # Dark theme styles
-│   └── chat.js         # Socket.io client logic
-├── tests/
-│   └── server.test.js  # API tests
-├── package.json
-├── Dockerfile
-└── README.md
-```
-
-## 🐳 Docker
-
+1. **Configure environment**
 ```bash
-# Build image
-docker build -t chatterbox .
-
-# Run container
-docker run -p 5000:5000 chatterbox
+cp .env.example .env
+# Edit .env with production values
 ```
 
-## 🧪 Testing
-
+2. **Deploy**
 ```bash
-npm test
+docker-compose -f docker/docker-compose.prod.yml up -d
 ```
 
-## 🤝 Contributing
+### Kubernetes (Recommended for Production)
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+1. **Apply configurations**
+```bash
+kubectl apply -f kubernetes/
+```
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+2. **Check deployment status**
+```bash
+kubectl get pods -n chat-system
+kubectl get services -n chat-system
+```
 
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- [Socket.io](https://socket.io/) for real-time communication
-- [Express.js](https://expressjs.com/) for the web framework
-- [Icons8](https://icons8.com/) for the logo
+3. **Access via Ingress**
+Update your `/etc/hosts` or DNS:
+```
+chat.example.com -> <ingress-ip>
+```
 
 ---
 
-<p align="center">
-  Made with ❤️ by <a href="https://github.com/Qugates">Qugates</a>
-</p>
+## Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `NODE_ENV` | Environment | `development` |
+| `PORT` | Server port | `3000` |
+| `MONGODB_URI` | MongoDB connection string | `mongodb://localhost:27017/chat` |
+| `REDIS_HOST` | Redis host | `localhost` |
+| `REDIS_PORT` | Redis port | `6379` |
+| `JWT_SECRET` | JWT signing secret | Required |
+| `S3_ENABLED` | Enable S3 storage | `false` |
+| `S3_ENDPOINT` | S3/MinIO endpoint | `localhost:9000` |
+| `S3_BUCKET` | S3 bucket name | `chat-files` |
+
+---
+
+## API Endpoints
+
+### Authentication
+```
+POST   /api/auth/register    - Create account
+POST   /api/auth/login       - Get JWT token
+POST   /api/auth/logout      - Invalidate token
+POST   /api/auth/refresh     - Refresh access token
+GET    /api/auth/me          - Current user info
+POST   /api/auth/forgot-password - Request password reset
+POST   /api/auth/reset-password  - Reset password
+```
+
+### Users
+```
+GET    /api/users            - Search users
+GET    /api/users/:id        - Get user profile
+GET    /api/users/:id/presence - Get user presence
+```
+
+### Conversations
+```
+GET    /api/conversations    - List conversations
+POST   /api/conversations/direct - Create 1:1 conversation
+POST   /api/conversations/group  - Create group
+GET    /api/conversations/:id - Get conversation
+GET    /api/conversations/:id/messages - Get messages
+POST   /api/conversations/:id/read - Mark as read
+POST   /api/conversations/:id/leave - Leave conversation
+```
+
+### Rooms (Legacy)
+```
+GET    /api/rooms            - List rooms
+GET    /api/rooms/:name      - Get room info
+POST   /api/rooms            - Create room
+GET    /api/rooms/:name/messages - Get room messages
+```
+
+### Files
+```
+POST   /api/files/upload     - Upload file
+GET    /api/files/:id        - Get file info
+DELETE /api/files/:id        - Delete file
+GET    /api/files/room/:roomId - Get room files
+```
+
+---
+
+## WebSocket Events
+
+### Client → Server
+```javascript
+// Authentication
+socket.emit('auth', { token: 'jwt-token' });
+
+// Room events
+socket.emit('join-room', { roomName: 'general' });
+socket.emit('leave-room', { roomName: 'general' });
+socket.emit('send-room-message', { roomName: 'general', content: 'Hello!' });
+
+// Conversation events
+socket.emit('join-conversation', { conversationId: '...' });
+socket.emit('send-message', { conversationId: '...', content: 'Hello!' });
+
+// Presence events
+socket.emit('typing', { conversationId: '...' });
+socket.emit('stop-typing', { conversationId: '...' });
+socket.emit('mark-read', { conversationId: '...', messageIds: [...] });
+socket.emit('heartbeat', {});
+```
+
+### Server → Client
+```javascript
+// Authentication
+socket.on('authenticated', (data) => {});
+
+// Messages
+socket.on('new-message', (message) => {});
+socket.on('room-message', (message) => {});
+
+// Presence
+socket.on('user-joined-room', (data) => {});
+socket.on('user-left-room', (data) => {});
+socket.on('user-typing', (data) => {});
+socket.on('user-stop-typing', (data) => {});
+socket.on('presence:online', (data) => {});
+socket.on('presence:offline', (data) => {});
+```
+
+---
+
+## Scaling Guide
+
+### Horizontal Scaling
+
+The application is designed for horizontal scaling:
+
+1. **Multiple API Instances**
+   - Deploy multiple replicas via Kubernetes HPA
+   - Use sticky sessions for WebSocket connections
+   - Share session state via Redis
+
+2. **Redis Pub/Sub**
+   - All instances subscribe to Redis channels
+   - Messages broadcast across all instances
+   - Real-time sync without sticky sessions for messages
+
+3. **Database Connection Pooling**
+   - MongoDB connection pool: 10 connections per instance
+   - Redis connection pooling
+
+### Rate Limiting
+
+- **API**: 100 requests/minute per IP
+- **WebSocket**: 10 messages/second per user
+- Redis-based token bucket implementation
+
+### Performance Tips
+
+1. **Use production Redis**: Enable persistence (AOF)
+2. **Use S3 for files**: Don't store files on application server
+3. **Enable compression**: Add nginx compression
+4. **Use CDN**: Serve static assets via CDN
+
+---
+
+## Security
+
+- **JWT Authentication**: Access + Refresh tokens
+- **Password Hashing**: bcrypt with 12 salt rounds
+- **Input Validation**: Server-side validation on all inputs
+- **Rate Limiting**: Prevents abuse
+- **CORS**: Configurable allowed origins
+- **File Validation**: MIME type whitelist
+
+---
+
+## Project Structure
+
+```
+chatterbox/
+├── src/
+│   ├── api/              # REST API routes
+│   │   ├── routes/       # API endpoints
+│   │   └── middlewares/  # Auth, rate limiting
+│   ├── config/           # Configuration
+│   ├── models/           # MongoDB schemas
+│   ├── services/         # Business logic
+│   ├── websocket/        # Socket.io handlers
+│   ├── queue/           # Redis Streams worker
+│   ├── utils/           # Helpers
+│   ├── app.js           # Express setup
+│   └── server.js        # Entry point
+├── public/              # Static files
+├── docker/              # Docker configs
+├── kubernetes/          # K8s manifests
+├── tests/               # Test files
+└── .env.example         # Environment template
+```
+
+---
+
+## Testing
+
+```bash
+# Run tests
+npm test
+
+# Run linting
+npm run lint
+```
+
+---
+
+## Troubleshooting
+
+### Common Issues
+
+1. **MongoDB Connection Error**
+   - Check MongoDB is running
+   - Verify MONGODB_URI in .env
+
+2. **Redis Connection Error**
+   - Check Redis is running
+   - Verify REDIS_HOST and REDIS_PORT
+
+3. **WebSocket Connection Issues**
+   - Check CORS settings
+   - Verify nginx WebSocket proxy configuration
+
+4. **File Upload Fails**
+   - Check storage permissions
+   - Verify S3 credentials if using S3
+
+### Logs
+
+```bash
+# View application logs
+docker logs -f chat-app
+
+# View Kubernetes logs
+kubectl logs -n chat-system -l app.kubernetes.io/name=chat-app
+```
+
+---
+
+## License
+
+MIT License - see [LICENSE](LICENSE) for details.
+
+---
+
+## Credits
+
+Built with:
+- [Node.js](https://nodejs.org/)
+- [Express](https://expressjs.com/)
+- [Socket.io](https://socket.io/)
+- [MongoDB](https://www.mongodb.com/)
+- [Redis](https://redis.io/)
+- [MinIO](https://min.io/)
+
+---
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.

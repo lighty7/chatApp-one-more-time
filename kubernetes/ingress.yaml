@@ -1,0 +1,31 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: chat-ingress
+  namespace: chat-system
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/websocket-services: "chat-service"
+    nginx.ingress.kubernetes.io/session-cookie-name: "CHATSESSION"
+    nginx.ingress.kubernetes.io/session-cookie-hash: "sha1"
+    nginx.ingress.kubernetes.io/session-cookie-strategy: "prefix"
+    nginx.ingress.kubernetes.io/affinity: "cookie"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: chat.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: chat-service
+                port:
+                  number: 80
+  tls:
+    - hosts:
+        - chat.example.com
+      secretName: chat-tls-secret
