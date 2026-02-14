@@ -8,10 +8,17 @@
     "start": "node server.js",
     "dev": "nodemon server.js",
     "worker": "node src/queue/worker.js",
-    "test": "mocha --exit tests/*",
+    "test": "mocha --exit --timeout 10000 tests/*",
+    "test:watch": "mocha --watch --timeout 10000 tests/*",
     "lint": "eslint src/ --ext .js",
     "lint:fix": "eslint src/ --ext .js --fix",
-    "security:check": "npm audit --audit-level high"
+    "lint:check": "eslint src/ --ext .js --format stylish || true",
+    "security:check": "npm audit --audit-level high",
+    "validate": "npm run lint:check && npm run test",
+    "docker:dev": "docker-compose -f docker/docker-compose.dev.yml up -d",
+    "docker:prod": "docker-compose -f docker/docker-compose.prod.yml up -d",
+    "docker:down": "docker-compose -f docker/docker-compose.dev.yml down",
+    "docker:build": "docker build -f docker/Dockerfile -t chatterbox:latest ."
   },
   "keywords": [
     "chat",
