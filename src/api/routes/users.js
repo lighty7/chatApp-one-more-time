@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
 const userService = require('../../services/userService');
-const authService = require('../../services/authService');
 const { getOnlineUsers } = require('../../services/presenceService');
 
 router.get('/', async (req, res, next) => {

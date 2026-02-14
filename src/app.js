@@ -1,5 +1,4 @@
 const express = require('express');
-const path = require('path');
 const config = require('./config');
 const apiRoutes = require('./api/routes');
 
@@ -55,7 +54,7 @@ function createApp() {
     res.status(404).json({ error: 'Not found' });
   });
 
-  app.use((err, req, res, next) => {
+  app.use((err, req, res, _next) => {
     console.error('Error:', err.message);
     
     const statusCode = err.statusCode || 500;

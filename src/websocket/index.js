@@ -67,7 +67,7 @@ function setupWebSocket(httpServer) {
     socket.emit('authenticated', {
       userId: socket.userId,
       socketId: socket.id
-  });
+    });
 
     const presence = await import('../services/userService.js');
     const userPresence = await presence.default.getUserPresence(socket.userId);

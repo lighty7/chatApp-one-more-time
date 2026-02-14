@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
 const { authMiddleware, optionalAuthMiddleware } = require('../middlewares/auth');
-const rateLimitService = require('../../services/rateLimitService');
 
 const authRoutes = require('./auth');
 const userRoutes = require('./users');

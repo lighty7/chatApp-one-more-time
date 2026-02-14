@@ -56,11 +56,11 @@ class ChatService {
     const conversations = await Conversation.find({
       'participants.user': userId
     })
-    .sort({ lastMessageAt: -1, updatedAt: -1 })
-    .skip(skip)
-    .limit(limit)
-    .populate('participants.user', 'username displayName avatar status lastSeen')
-    .lean();
+      .sort({ lastMessageAt: -1, updatedAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate('participants.user', 'username displayName avatar status lastSeen')
+      .lean();
 
     const enrichedConversations = await Promise.all(
       conversations.map(async (conv) => {
@@ -90,8 +90,8 @@ class ChatService {
       _id: conversationId,
       'participants.user': userId
     })
-    .populate('participants.user', 'username displayName avatar status')
-    .lean();
+      .populate('participants.user', 'username displayName avatar status')
+      .lean();
 
     if (!conversation) {
       throw new Error('Conversation not found');
@@ -113,11 +113,24 @@ class ChatService {
     };
   }
 
-  async getMessages(conversationId, userId, page = 1, limit = 50) {
+  async markAsRead(conversationId, userId, messageIds = []) {
     const conversation = await Conversation.findOne({
       _id: conversationId,
       'participants.user': userId
     });
+
+    if (!conversation) {
+      throw new Error('Conversation not found');
+    }
+
+    const messagesToMark = messageIds.length > 0
+      ? { _id: { $in: messageIds }, conversationId }
+      : { conversationId, 'readBy.user': { $ne: userId } };
+
+    await Message.updateMany(
+      messagesToMark,
+      { $push: { readBy: { user: userId, readAt: new Date() } } }
+    );
 
     const redis = getRedisPub();
     await redis.publish(`conversation:${conversationId}`, JSON.stringify({
@@ -126,6 +139,32 @@ class ChatService {
     }));
 
     return { success: true };
+  }
+
+  async getMessages(conversationId, userId, page = 1, limit = 50) {
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      'participants.user': userId
+    });
+
+    if (!conversation) {
+      throw new Error('Conversation not found');
+    }
+
+    const skip = (page - 1) * limit;
+
+    const messages = await Message.find({
+      conversationId,
+      isDeleted: false
+    })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate('sender', 'username displayName avatar')
+      .populate('attachment')
+      .lean();
+
+    return messages.reverse();
   }
 
   async addParticipant(conversationId, userId, newParticipantId) {

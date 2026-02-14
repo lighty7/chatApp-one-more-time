@@ -113,11 +113,11 @@ class FileService {
       conversationId,
       isActive: true
     })
-    .sort({ createdAt: -1 })
-    .skip(skip)
-    .limit(limit)
-    .populate('uploadedBy', 'username displayName')
-    .lean();
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate('uploadedBy', 'username displayName')
+      .lean();
 
     return files.map(f => ({
       ...f,
@@ -132,11 +132,11 @@ class FileService {
       roomId,
       isActive: true
     })
-    .sort({ createdAt: -1 })
-    .skip(skip)
-    .limit(limit)
-    .populate('uploadedBy', 'username displayName')
-    .lean();
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate('uploadedBy', 'username displayName')
+      .lean();
 
     return files.map(f => ({
       ...f,
@@ -151,10 +151,10 @@ class FileService {
       uploadedBy: userId,
       isActive: true
     })
-    .sort({ createdAt: -1 })
-    .skip(skip)
-    .limit(limit)
-    .lean();
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
 
     return files.map(f => ({
       ...f,
