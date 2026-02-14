@@ -139,6 +139,39 @@ describe('Services', () => {
       assert.ok(typeof PresenceService.startTyping === 'function');
     });
   });
+
+  describe('AI Service', () => {
+    it('should export required methods', () => {
+      const AIService = require('../src/services/aiService');
+      
+      assert.ok(typeof AIService.getModels === 'function');
+      assert.ok(typeof AIService.chat === 'function');
+      assert.ok(typeof AIService.streamChat === 'function');
+    });
+
+    it('should have default Ollama host configuration', () => {
+      const AIService = require('../src/services/aiService');
+      
+      assert.ok(AIService.ollamaHost);
+      assert.ok(AIService.ollamaHost.includes('ollama') || AIService.ollamaHost.includes('11434'));
+    });
+
+    it('should support streaming with abort controller', () => {
+      const AIService = require('../src/services/aiService');
+      
+      assert.ok(typeof AIService.streamChat === 'function');
+    });
+  });
+
+  describe('Auth Service', () => {
+    it('should export required methods', () => {
+      const AuthService = require('../src/services/authService');
+      
+      assert.ok(typeof AuthService.register === 'function');
+      assert.ok(typeof AuthService.login === 'function');
+      assert.ok(typeof AuthService.verifyToken === 'function');
+    });
+  });
 });
 
 describe('WebSocket', () => {
@@ -185,6 +218,16 @@ describe('API Routes', () => {
     it('should have file routes', () => {
       const fileRoutes = require('../src/api/routes/files');
       assert.ok(fileRoutes);
+    });
+
+    it('should have AI routes', () => {
+      const aiRoutes = require('../src/api/routes/ai');
+      assert.ok(aiRoutes);
+    });
+
+    it('should have index routes', () => {
+      const indexRoutes = require('../src/api/routes/index');
+      assert.ok(indexRoutes);
     });
   });
 

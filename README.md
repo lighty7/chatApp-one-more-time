@@ -29,6 +29,17 @@ A scalable, production-ready real-time chat application built with Node.js, Sock
 - **File Sharing** - Upload and share files (images, videos, documents)
 - **Message History** - Persistent message storage with pagination
 
+### AI Features
+- **AI Chat Assistant** - Real-time AI-powered chat assistant
+- **Streaming Responses** - Progressive AI response delivery
+- **Abort Controller** - Stop AI responses mid-stream
+- **Context-Aware** - Maintains conversation history with AI
+
+### Account Features
+- **Delete Account** - User-initiated account deletion
+- **Notifications** - In-app notifications for messages and events
+- **Online Indicators** - Real-time online/offline status display
+
 ### Scalability Features
 - **Event-Driven Architecture** - Redis Streams for message queuing
 - **Horizontal Scaling** - Ready for multi-instance deployment
@@ -365,6 +376,28 @@ chatterbox/
 
 ---
 
+## Recent Changes (v2.0)
+
+### New Features
+- **AI Chat Backend** - Added Ollama-powered AI assistant with streaming support
+- **Abort Controller** - Users can stop AI responses mid-stream
+- **Delete Account** - User-initiated account deletion functionality
+- **Notifications** - In-app notification system
+- **Online Indicators** - Real-time presence display
+
+### Improvements
+- **Enhanced WebSocket handlers** - Better error handling and room management
+- **Improved test coverage** - Updated test suite with comprehensive tests
+- **CI/CD enhancements** - Multi-version Node.js testing (18, 20, 21)
+- **Docker optimizations** - Layer caching and build improvements
+
+### Bug Fixes
+- Room connection error fixes
+- Lint error resolutions
+- Various stability improvements
+
+---
+
 ## Testing
 
 ```bash
@@ -430,3 +463,41 @@ Built with:
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+---
+
+## Documentation
+
+Comprehensive documentation is available in the `docs/` folder:
+
+| Document | Description |
+|----------|-------------|
+| [docs/FEATURES.md](docs/FEATURES.md) | Features overview (brief) |
+| [docs/FEATURES-detailed.md](docs/FEATURES-detailed.md) | Complete features documentation |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Architecture overview (brief) |
+| [docs/ARCHITECTURE-detailed.md](docs/ARCHITECTURE-detailed.md) | System architecture details |
+| [docs/API.md](docs/API.md) | API endpoints overview |
+| [docs/API-detailed.md](docs/API-detailed.md) | Complete API reference |
+| [docs/WEBSOCKET.md](docs/WEBSOCKET.md) | WebSocket events overview |
+| [docs/WEBSOCKET-detailed.md](docs/WEBSOCKET-detailed.md) | Socket.io events guide |
+| [docs/AI-CHAT.md](docs/AI-CHAT.md) | AI chat overview |
+| [docs/AI-CHAT-detailed.md](docs/AI-CHAT-detailed.md) | AI chat implementation |
+| [docs/DOCKER.md](docs/DOCKER.md) | Docker setup overview |
+| [docs/DOCKER-detailed.md](docs/DOCKER-detailed.md) | Complete Docker guide |
+| [docs/TESTING.md](docs/TESTING.md) | Testing overview |
+| [docs/TESTING-detailed.md](docs/TESTING-detailed.md) | Testing guide |
+| [docs/SECURITY.md](docs/SECURITY.md) | Security overview |
+| [docs/SECURITY-detailed.md](docs/SECURITY-detailed.md) | Security guide |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Deployment overview |
+| [docs/DEPLOYMENT-detailed.md](docs/DEPLOYMENT-detailed.md) | Deployment guide |
+| [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Troubleshooting overview |
+| [docs/TROUBLESHOOTING-detailed.md](docs/TROUBLESHOOTING-detailed.md) | Solutions to common issues |
+
+### Quick Start with Documentation
+
+1. **New to ChatterBox?** Start with [FEATURES.md](docs/FEATURES.md)
+2. **Want to run locally?** See [DOCKER.md](docs/DOCKER.md)
+3. **Need to integrate?** Check [API.md](docs/API.md)
+4. **Building real-time features?** See [WEBSOCKET.md](docs/WEBSOCKET.md)
+5. **Adding AI chat?** See [AI-CHAT.md](docs/AI-CHAT.md)
+6. **Ready for production?** See [DEPLOYMENT.md](docs/DEPLOYMENT.md)
