@@ -503,6 +503,62 @@ Authorization: Bearer <token>
 
 ---
 
+#### POST /api/conversations/messages/:messageId/reactions
+
+Add a reaction to a message.
+
+**Headers:**
+```
+Authorization: Bearer <token>
+```
+
+**Request:**
+```json
+{
+  "emoji": "👍"
+}
+```
+
+**Response:**
+```json
+{
+  "_id": "message-id",
+  "content": "Hello!",
+  "reactions": [
+    { "user": { "_id": "user-id", "displayName": "John" }, "emoji": "👍" }
+  ]
+}
+```
+
+**Note:** Only predefined emojis are allowed: 👍 ❤️ 😂 😮 😢 🙏 🎉 🔥
+
+---
+
+#### DELETE /api/conversations/messages/:messageId/reactions
+
+Remove a reaction from a message.
+
+**Headers:**
+```
+Authorization: Bearer <token>
+```
+
+**Query Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| emoji | string | The emoji to remove (required) |
+
+**Response:**
+```json
+{
+  "_id": "message-id",
+  "content": "Hello!",
+  "reactions": []
+}
+```
+
+---
+
 ### Rooms (Legacy)
 
 #### GET /api/rooms

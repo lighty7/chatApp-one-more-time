@@ -8,7 +8,7 @@ Brief overview of ChatterBox API endpoints. See [API-detailed.md](API-detailed.m
 |----------|---------|
 | Authentication | register, login, logout, refresh, me, forgot-password, reset-password |
 | Users | search, profile, presence |
-| Conversations | list, create, messages, read, leave |
+| Conversations | list, create, messages, read, leave, reactions |
 | Rooms | list, create, messages |
 | Files | upload, get, delete |
 | AI | chat, stop |

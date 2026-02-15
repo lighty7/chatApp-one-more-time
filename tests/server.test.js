@@ -52,6 +52,22 @@ describe('Unit Tests - Services', () => {
       assert.ok(config.reactions.rateLimit);
       assert.ok(config.reactions.rateLimit.max > 0);
     });
+
+    it('should have reaction rate limit configuration', () => {
+      const config = require('../src/config');
+      
+      assert.ok(config.reactions.rateLimit.windowMs);
+      assert.ok(config.reactions.rateLimit.max);
+      assert.equal(config.reactions.rateLimit.max, 30);
+      assert.equal(config.reactions.rateLimit.windowMs, 60000);
+    });
+
+    it('should have predefined emoji set', () => {
+      const config = require('../src/config');
+      const expectedEmojis = ['👍', '❤️', '😂', '😮', '😢', '🙏', '🎉', '🔥'];
+      
+      assert.deepEqual(config.reactions.allowedEmojis, expectedEmojis);
+    });
   });
 });
 
