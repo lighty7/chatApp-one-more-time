@@ -76,6 +76,18 @@ module.exports = {
     maxHistoryPerConversation: 50
   },
 
+  reactions: {
+    allowedEmojis: ['👍', '❤️', '😂', '😮', '😢', '🙏', '🎉', '🔥'],
+    rateLimit: {
+      windowMs: 60 * 1000,
+      max: 30
+    }
+  },
+
+  test: {
+    enabled: true
+  },
+
   cors: {
     origin: process.env.CORS_ORIGIN || (isDevelopment ? ['http://localhost:3000', 'http://localhost:10000'] : ['*']),
     credentials: true

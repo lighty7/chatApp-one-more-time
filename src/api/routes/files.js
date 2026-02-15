@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
 const fileService = require('../../services/fileService');
 const { getUpload } = require('../../config/s3');
 
@@ -9,6 +10,12 @@ router.post('/upload', async (req, res, next) => {
     
     upload.single('file')(req, res, async (err) => {
       if (err) {
+        if (err.code === 'LIMIT_UNEXPECTED_FILE_FIELD') {
+          return res.status(400).json({ error: 'Invalid file field name. Use "file" as the field name.' });
+        }
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return res.status(400).json({ error: 'File too large' });
+        }
         return res.status(400).json({ error: err.message });
       }
 

@@ -145,6 +145,10 @@ class ChatService {
   }
 
   async addReaction(messageId, userId, emoji) {
+    if (!config.reactions.allowedEmojis.includes(emoji)) {
+      throw new Error('Invalid emoji. Only predefined reactions are allowed.');
+    }
+
     const message = await Message.findById(messageId);
     if (!message) {
       throw new Error('Message not found');

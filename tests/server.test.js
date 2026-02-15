@@ -40,6 +40,18 @@ describe('Unit Tests - Services', () => {
       assert.equal(config.port, 3000);
       assert.equal(config.rateLimit.api.max, 100);
     });
+
+    it('should have reactions configuration with allowed emojis', () => {
+      const config = require('../src/config');
+      
+      assert.ok(config.reactions);
+      assert.ok(Array.isArray(config.reactions.allowedEmojis));
+      assert.ok(config.reactions.allowedEmojis.length > 0);
+      assert.ok(config.reactions.allowedEmojis.includes('👍'));
+      assert.ok(config.reactions.allowedEmojis.includes('❤️'));
+      assert.ok(config.reactions.rateLimit);
+      assert.ok(config.reactions.rateLimit.max > 0);
+    });
   });
 });
 
