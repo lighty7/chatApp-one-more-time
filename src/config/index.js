@@ -84,6 +84,10 @@ module.exports = {
     }
   },
 
+  test: {
+    enabled: true
+  },
+
   cors: {
     origin: process.env.CORS_ORIGIN || (isDevelopment ? ['http://localhost:3000', 'http://localhost:10000'] : ['*']),
     credentials: true
