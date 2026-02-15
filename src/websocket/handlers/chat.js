@@ -2,8 +2,10 @@ const chatService = require('../../services/chatService');
 const presenceService = require('../../services/presenceService');
 const aiService = require('../../services/aiService');
 const userService = require('../../services/userService');
+const config = require('../../config');
 
 const userMessageCounts = new Map();
+const userReactionCounts = new Map();
 
 function setupChatHandlers(io, socket) {
   const userId = socket.userId;
@@ -148,6 +150,22 @@ function setupChatHandlers(io, socket) {
   socket.on('add-reaction', async (data, callback) => {
     try {
       const { messageId, emoji, conversationId } = data;
+      
+      const now = Date.now();
+      const reactionLimit = config.reactions.rateLimit;
+      const userReactionCount = userReactionCounts.get(userId) || { count: 0, resetAt: now + reactionLimit.windowMs };
+      
+      if (now > userReactionCount.resetAt) {
+        userReactionCounts.set(userId, { count: 1, resetAt: now + reactionLimit.windowMs });
+      } else {
+        userReactionCount.count++;
+        userReactionCounts.set(userId, userReactionCount);
+        
+        if (userReactionCount.count > reactionLimit.max) {
+          socket.emit('error', { message: 'Rate limit exceeded for reactions. Please slow down.' });
+          return;
+        }
+      }
       
       const message = await chatService.addReaction(messageId, userId, emoji);
       
