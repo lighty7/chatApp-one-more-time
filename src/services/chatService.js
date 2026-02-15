@@ -206,7 +206,7 @@ class ChatService {
     return message;
   }
 
-  async sendMessage(conversationId, userId, content, type = 'text', attachmentId = null) {
+  async sendMessage(conversationId, userId, content, type = 'text', attachmentId = null, replyTo = null) {
     const conversation = await Conversation.findOne({
       _id: conversationId,
       'participants.user': userId
@@ -220,18 +220,30 @@ class ChatService {
       throw new Error('You are muted in this conversation');
     }
 
-    const message = await Message.create({
+    const messageData = {
       conversationId,
       sender: userId,
       content,
       type,
       attachment: attachmentId,
       readBy: [{ user: userId, readAt: new Date() }]
-    });
+    };
+
+    if (replyTo) {
+      const parentMessage = await Message.findById(replyTo);
+      if (parentMessage && parentMessage.conversationId.toString() === conversationId) {
+        messageData.replyTo = replyTo;
+      }
+    }
+
+    const message = await Message.create(messageData);
 
     await message.populate('sender', 'username displayName avatar');
     if (attachmentId) {
       await message.populate('attachment');
+    }
+    if (message.replyTo) {
+      await message.populate('replyTo');
     }
 
     conversation.lastMessage = message._id;
