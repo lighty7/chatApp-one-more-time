@@ -117,4 +117,42 @@ router.post('/:id/read', async (req, res, next) => {
   }
 });
 
+router.post('/messages/:messageId/reactions', async (req, res, next) => {
+  try {
+    const { emoji } = req.body;
+    const userId = req.user.id;
+    
+    if (!emoji) {
+      return res.status(400).json({ error: 'Emoji is required' });
+    }
+
+    const message = await chatService.addReaction(req.params.messageId, userId, emoji);
+    res.json(message);
+  } catch (error) {
+    if (error.message === 'Message not found') {
+      return res.status(404).json({ error: error.message });
+    }
+    next(error);
+  }
+});
+
+router.delete('/messages/:messageId/reactions', async (req, res, next) => {
+  try {
+    const { emoji } = req.query;
+    const userId = req.user.id;
+    
+    if (!emoji) {
+      return res.status(400).json({ error: 'Emoji is required' });
+    }
+
+    const message = await chatService.removeReaction(req.params.messageId, userId, emoji);
+    res.json(message);
+  } catch (error) {
+    if (error.message === 'Message not found') {
+      return res.status(404).json({ error: error.message });
+    }
+    next(error);
+  }
+});
+
 module.exports = router;

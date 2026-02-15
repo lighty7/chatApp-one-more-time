@@ -144,6 +144,68 @@ class ChatService {
     return { success: true };
   }
 
+  async addReaction(messageId, userId, emoji) {
+    const message = await Message.findById(messageId);
+    if (!message) {
+      throw new Error('Message not found');
+    }
+
+    const existingReaction = message.reactions.find(
+      r => r.user.toString() === userId.toString() && r.emoji === emoji
+    );
+
+    if (existingReaction) {
+      return message;
+    }
+
+    const previousReaction = message.reactions.find(
+      r => r.user.toString() === userId.toString()
+    );
+
+    if (previousReaction) {
+      message.reactions = message.reactions.filter(
+        r => r.user.toString() !== userId.toString()
+      );
+    }
+
+    message.reactions.push({ user: userId, emoji });
+    await message.save();
+
+    await message.populate('sender', 'username displayName avatar');
+    await message.populate('reactions.user', 'username displayName avatar');
+
+    const redisPub = getRedisPub();
+    await redisPub.publish(`conversation:${message.conversationId}`, JSON.stringify({
+      type: 'message_reaction_added',
+      data: { messageId, userId, emoji, message }
+    }));
+
+    return message;
+  }
+
+  async removeReaction(messageId, userId, emoji) {
+    const message = await Message.findById(messageId);
+    if (!message) {
+      throw new Error('Message not found');
+    }
+
+    message.reactions = message.reactions.filter(
+      r => !(r.user.toString() === userId.toString() && r.emoji === emoji)
+    );
+    await message.save();
+
+    await message.populate('sender', 'username displayName avatar');
+    await message.populate('reactions.user', 'username displayName avatar');
+
+    const redisPub = getRedisPub();
+    await redisPub.publish(`conversation:${message.conversationId}`, JSON.stringify({
+      type: 'message_reaction_removed',
+      data: { messageId, userId, emoji, message }
+    }));
+
+    return message;
+  }
+
   async sendMessage(conversationId, userId, content, type = 'text', attachmentId = null) {
     const conversation = await Conversation.findOne({
       _id: conversationId,

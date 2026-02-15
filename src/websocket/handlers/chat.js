@@ -144,6 +144,52 @@ function setupChatHandlers(io, socket) {
     }
   });
 
+  socket.on('add-reaction', async (data, callback) => {
+    try {
+      const { messageId, emoji, conversationId } = data;
+      
+      const message = await chatService.addReaction(messageId, userId, emoji);
+      
+      io.to(`conversation:${conversationId}`).emit('message-reaction-added', {
+        messageId,
+        emoji,
+        userId,
+        message
+      });
+
+      if (callback) {
+        callback({ success: true, message });
+      }
+    } catch (error) {
+      if (callback) {
+        callback({ success: false, error: error.message });
+      }
+    }
+  });
+
+  socket.on('remove-reaction', async (data, callback) => {
+    try {
+      const { messageId, emoji, conversationId } = data;
+      
+      const message = await chatService.removeReaction(messageId, userId, emoji);
+      
+      io.to(`conversation:${conversationId}`).emit('message-reaction-removed', {
+        messageId,
+        emoji,
+        userId,
+        message
+      });
+
+      if (callback) {
+        callback({ success: true, message });
+      }
+    } catch (error) {
+      if (callback) {
+        callback({ success: false, error: error.message });
+      }
+    }
+  });
+
   socket.on('ai-message', async (data, callback) => {
     try {
       const { message, conversationHistory } = data;
