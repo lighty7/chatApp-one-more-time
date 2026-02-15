@@ -48,7 +48,7 @@ function setupChatHandlers(io, socket) {
 
   socket.on('send-message', async (data, callback) => {
     try {
-      const { conversationId, content, type = 'text', attachmentId } = data;
+      const { conversationId, content, type = 'text', attachmentId, replyTo } = data;
 
       const now = Date.now();
       const userCount = userMessageCounts.get(userId) || { count: 0, resetAt: now + 1000 };
@@ -70,7 +70,8 @@ function setupChatHandlers(io, socket) {
         userId,
         content,
         type,
-        attachmentId
+        attachmentId,
+        replyTo
       );
 
       io.to(`conversation:${conversationId}`).emit('new-message', message);
