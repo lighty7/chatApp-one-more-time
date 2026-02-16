@@ -375,6 +375,37 @@ class ChatService {
     return this.removeParticipant(conversationId, userId, userId);
   }
 
+  async updateGroup(conversationId, userId, updates) {
+    const conversation = await Conversation.findById(conversationId);
+    
+    if (!conversation) {
+      throw new Error('Conversation not found');
+    }
+
+    if (conversation.type !== 'group') {
+      throw new Error('Can only update group conversations');
+    }
+
+    if (!conversation.isAdmin(userId)) {
+      throw new Error('Only admins can update group');
+    }
+
+    if (updates.name !== undefined) {
+      conversation.name = updates.name;
+    }
+    if (updates.description !== undefined) {
+      conversation.description = updates.description;
+    }
+    if (updates.avatar !== undefined) {
+      conversation.avatar = updates.avatar;
+    }
+
+    await conversation.save();
+    await conversation.populate('participants.user', 'username displayName avatar status');
+
+    return conversation;
+  }
+
   // Room-based chat methods (legacy support)
   async getRooms(page = 1, limit = 20) {
     const skip = (page - 1) * limit;

@@ -240,8 +240,13 @@ POST   /api/conversations/direct - Create 1:1 conversation
 POST   /api/conversations/group  - Create group
 GET    /api/conversations/:id - Get conversation
 GET    /api/conversations/:id/messages - Get messages
-POST   /api/conversations/:id/read - Mark as read
+PUT    /api/conversations/:id - Update group (admin only)
+POST   /api/conversations/:id/participants - Add participant (admin only)
+DELETE /api/conversations/:id/participants/:userId - Remove participant
+PUT    /api/conversations/:id/participants/:userId/role - Update role (admin only)
+POST   /api/conversations/:id/join - Join conversation
 POST   /api/conversations/:id/leave - Leave conversation
+POST   /api/conversations/:id/read - Mark as read
 ```
 
 ### Rooms (Legacy)
@@ -283,6 +288,11 @@ socket.emit('typing', { conversationId: '...' });
 socket.emit('stop-typing', { conversationId: '...' });
 socket.emit('mark-read', { conversationId: '...', messageIds: [...] });
 socket.emit('heartbeat', {});
+
+// Group management events
+socket.emit('add-participant', { conversationId: '...', userId: '...' });
+socket.emit('remove-participant', { conversationId: '...', userId: '...' });
+socket.emit('update-participant-role', { conversationId: '...', userId: '...', role: 'admin' });
 ```
 
 ### Server → Client
@@ -301,6 +311,11 @@ socket.on('user-typing', (data) => {});
 socket.on('user-stop-typing', (data) => {});
 socket.on('presence:online', (data) => {});
 socket.on('presence:offline', (data) => {});
+
+// Group management
+socket.on('participant-added', (data) => {});
+socket.on('participant-removed', (data) => {});
+socket.on('participant-role-updated', (data) => {});
 ```
 
 ---

@@ -107,6 +107,57 @@ router.post('/:id/leave', async (req, res, next) => {
   }
 });
 
+router.put('/:id', async (req, res, next) => {
+  try {
+    const { name, description, avatar } = req.body;
+    const conversation = await chatService.updateGroup(req.params.id, req.user.id, { name, description, avatar });
+    res.json(conversation);
+  } catch (error) {
+    if (error.message.includes('not found') || error.message.includes('authorized')) {
+      return res.status(400).json({ error: error.message });
+    }
+    next(error);
+  }
+});
+
+router.post('/:id/participants', async (req, res, next) => {
+  try {
+    const { userId } = req.body;
+    const conversation = await chatService.addParticipant(req.params.id, req.user.id, userId || req.user.id);
+    res.json(conversation);
+  } catch (error) {
+    if (error.message.includes('not found') || error.message.includes('authorized') || error.message.includes('already')) {
+      return res.status(400).json({ error: error.message });
+    }
+    next(error);
+  }
+});
+
+router.delete('/:id/participants/:userId', async (req, res, next) => {
+  try {
+    await chatService.removeParticipant(req.params.id, req.user.id, req.params.userId);
+    res.json({ success: true });
+  } catch (error) {
+    if (error.message.includes('not found') || error.message.includes('authorized')) {
+      return res.status(400).json({ error: error.message });
+    }
+    next(error);
+  }
+});
+
+router.put('/:id/participants/:userId/role', async (req, res, next) => {
+  try {
+    const { role } = req.body;
+    const conversation = await chatService.updateParticipantRole(req.params.id, req.user.id, req.params.userId, role);
+    res.json(conversation);
+  } catch (error) {
+    if (error.message.includes('not found') || error.message.includes('authorized')) {
+      return res.status(400).json({ error: error.message });
+    }
+    next(error);
+  }
+});
+
 router.post('/:id/read', async (req, res, next) => {
   try {
     const { messageIds } = req.body;

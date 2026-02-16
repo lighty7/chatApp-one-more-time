@@ -277,6 +277,69 @@ function setupChatHandlers(io, socket) {
       console.error('Error stopping AI message:', error);
     }
   });
+
+  socket.on('add-participant', async (data, callback) => {
+    try {
+      const { conversationId, userId } = data;
+      const conversation = await chatService.addParticipant(conversationId, userId, userId);
+      
+      io.to(`conversation:${conversationId}`).emit('participant-added', {
+        conversationId,
+        userId,
+        conversation
+      });
+
+      if (callback) {
+        callback({ success: true, conversation });
+      }
+    } catch (error) {
+      if (callback) {
+        callback({ success: false, error: error.message });
+      }
+    }
+  });
+
+  socket.on('remove-participant', async (data, callback) => {
+    try {
+      const { conversationId, userId } = data;
+      await chatService.removeParticipant(conversationId, userId, userId);
+      
+      io.to(`conversation:${conversationId}`).emit('participant-removed', {
+        conversationId,
+        userId
+      });
+
+      if (callback) {
+        callback({ success: true });
+      }
+    } catch (error) {
+      if (callback) {
+        callback({ success: false, error: error.message });
+      }
+    }
+  });
+
+  socket.on('update-participant-role', async (data, callback) => {
+    try {
+      const { conversationId, userId, role } = data;
+      const conversation = await chatService.updateParticipantRole(conversationId, userId, userId, role);
+      
+      io.to(`conversation:${conversationId}`).emit('participant-role-updated', {
+        conversationId,
+        userId,
+        role,
+        conversation
+      });
+
+      if (callback) {
+        callback({ success: true, conversation });
+      }
+    } catch (error) {
+      if (callback) {
+        callback({ success: false, error: error.message });
+      }
+    }
+  });
 }
 
 module.exports = { setupChatHandlers };
