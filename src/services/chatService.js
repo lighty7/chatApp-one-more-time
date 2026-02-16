@@ -289,6 +289,49 @@ class ChatService {
     return messages.reverse();
   }
 
+  async forwardMessage(targetConversationId, messageId, userId) {
+    const originalMessage = await Message.findById(messageId);
+    if (!originalMessage) {
+      throw new Error('Message not found');
+    }
+
+    const targetConversation = await Conversation.findOne({
+      _id: targetConversationId,
+      'participants.user': userId
+    });
+
+    if (!targetConversation) {
+      throw new Error('Target conversation not found or not authorized');
+    }
+
+    const message = await Message.create({
+      conversationId: targetConversationId,
+      sender: userId,
+      content: originalMessage.content,
+      type: originalMessage.type,
+      attachment: originalMessage.attachment,
+      readBy: [{ user: userId, readAt: new Date() }],
+      forwardedFrom: messageId
+    });
+
+    await message.populate('sender', 'username displayName avatar');
+    if (originalMessage.attachment) {
+      await message.populate('attachment');
+    }
+
+    targetConversation.lastMessage = message._id;
+    targetConversation.lastMessageAt = new Date();
+    await targetConversation.save();
+
+    const redisPub = getRedisPub();
+    await redisPub.publish(`conversation:${targetConversationId}`, JSON.stringify({
+      type: 'new_message',
+      data: message
+    }));
+
+    return message;
+  }
+
   async addParticipant(conversationId, userId, newParticipantId) {
     const conversation = await Conversation.findById(conversationId);
     

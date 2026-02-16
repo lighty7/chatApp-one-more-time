@@ -158,6 +158,19 @@ router.put('/:id/participants/:userId/role', async (req, res, next) => {
   }
 });
 
+router.post('/:id/forward', async (req, res, next) => {
+  try {
+    const { messageId } = req.body;
+    const message = await chatService.forwardMessage(req.params.id, messageId, req.user.id);
+    res.json(message);
+  } catch (error) {
+    if (error.message.includes('not found') || error.message.includes('authorized')) {
+      return res.status(400).json({ error: error.message });
+    }
+    next(error);
+  }
+});
+
 router.post('/:id/read', async (req, res, next) => {
   try {
     const { messageIds } = req.body;
